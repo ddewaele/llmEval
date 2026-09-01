@@ -1,0 +1,17 @@
+[
+  {
+    "id": "openai:gpt-5",
+    "provider": "openai",
+    "displayName": "GPT-5",
+    "pricing": { "inputPerMTok": 0, "outputPerMTok": 0 },
+    "structuredOutput": true,
+    "notes": "Copy this file to models.json and fill in real prices; entries override built-ins by id"
+  },
+  {
+    "id": "ollama:qwen2.5:7b",
+    "provider": "ollama",
+    "displayName": "Qwen 2.5 7B (local)",
+    "pricing": { "inputPerMTok": 0, "outputPerMTok": 0 },
+    "structuredOutput": true
+  }
+]
