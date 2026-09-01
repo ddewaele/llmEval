@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, lte, or } from "drizzle-orm";
 import {
   AppError,
   type ListRunItemsQuery,
@@ -14,12 +14,23 @@ import {
 } from "@llmeval/shared";
 import type { Config } from "../config.js";
 import type { Db } from "../db/client.js";
-import { datasetVersions, itemRevisions, runItems, runs, versionItems } from "../db/schema.js";
+import {
+  datasetVersions,
+  itemRevisions,
+  runItems,
+  runs,
+  scores,
+  versionItems,
+} from "../db/schema.js";
 import type { ModelRegistry } from "../llm/models.js";
 import { aggregateRun, runChannel, type RunAggregate, type RunEngine } from "../runs/engine.js";
 import { newId } from "../util/ids.js";
 import { nowIso } from "../util/time.js";
 import type { VersionService } from "./versions.js";
+import { computeAggregates } from "../scoring/aggregates.js";
+import type { ScorerRegistry } from "../scoring/registry.js";
+import type { ScoringService } from "../scoring/service.js";
+import type { RunAggregates, Score } from "@llmeval/shared";
 
 type RunRow = typeof runs.$inferSelect;
 type RunItemRow = typeof runItems.$inferSelect;
@@ -31,6 +42,8 @@ export class RunService {
     private readonly versions: VersionService,
     private readonly models: ModelRegistry,
     private readonly engine: RunEngine,
+    private readonly scorers: ScorerRegistry,
+    private readonly scoring: ScoringService,
   ) {}
 
   /** Create the run and its items, then start executing in the background. */
@@ -44,11 +57,7 @@ export class RunService {
       outputSchema: input.outputSchema ?? null,
     });
     this.models.resolve(config.model); // fail fast on unknown/unavailable models
-    const keys = new Set<string>();
-    for (const s of input.scorers) {
-      if (keys.has(s.key)) throw new AppError("VALIDATION", `Duplicate scorer key "${s.key}"`);
-      keys.add(s.key);
-    }
+    const scorerSpecs = this.scorers.validate(input.scorers);
     const entries = await this.db
       .select({ itemId: versionItems.itemId, revisionId: versionItems.revisionId })
       .from(versionItems)
@@ -64,7 +73,7 @@ export class RunService {
       name: input.name ?? null,
       taskConfigId: null,
       configSnapshot: config as unknown as RunRow["configSnapshot"],
-      scorers: input.scorers as unknown as RunRow["scorers"],
+      scorers: scorerSpecs as unknown as RunRow["scorers"],
       status: "pending",
       concurrency: input.concurrency ?? this.config.MAX_CONCURRENCY,
       triggeredBy: input.triggeredBy,
@@ -105,7 +114,12 @@ export class RunService {
       where: eq(datasetVersions.id, row.versionId),
       columns: { number: true },
     });
-    return toRun(row, version?.number ?? 0, await this.liveAggregate(row));
+    return toRun(
+      row,
+      version?.number ?? 0,
+      await this.liveAggregate(row),
+      await this.aggregatesFor(row),
+    );
   }
 
   async list(query: ListRunsQuery): Promise<Page<Run>> {
@@ -128,7 +142,14 @@ export class RunService {
     const page = await Promise.all(
       rows
         .slice(0, query.limit)
-        .map(async (r) => toRun(r.run, r.versionNumber, await this.liveAggregate(r.run))),
+        .map(async (r) =>
+          toRun(
+            r.run,
+            r.versionNumber,
+            await this.liveAggregate(r.run),
+            await this.aggregatesFor(r.run),
+          ),
+        ),
     );
     const last = page[page.length - 1];
     return {
@@ -141,6 +162,20 @@ export class RunService {
     await this.requireRow(runId);
     const conds = [eq(runItems.runId, runId)];
     if (query.status) conds.push(eq(runItems.status, query.status));
+    if (query.scorerKey) {
+      const failing = this.db
+        .select({ id: scores.runItemId })
+        .from(scores)
+        .where(
+          and(
+            eq(scores.scorerKey, query.scorerKey),
+            query.maxScore !== undefined
+              ? lte(scores.score, query.maxScore)
+              : eq(scores.passed, false),
+          ),
+        );
+      conds.push(inArray(runItems.id, failing));
+    }
     if (query.cursor) {
       const [posStr, id] = splitCursor(query.cursor);
       const pos = Number(posStr);
@@ -163,7 +198,9 @@ export class RunService {
       .where(and(...conds))
       .orderBy(asc(versionItems.position), asc(runItems.id))
       .limit(query.limit + 1);
-    const page = rows.slice(0, query.limit).map((r) => toRunItem(r.ri, r.rev, r.position));
+    const slice = rows.slice(0, query.limit);
+    const scoreMap = await this.scoring.scoresForRunItems(slice.map((r) => r.ri.id));
+    const page = slice.map((r) => toRunItem(r.ri, r.rev, r.position, scoreMap.get(r.ri.id) ?? []));
     const last = page[page.length - 1];
     return {
       items: page,
@@ -184,7 +221,8 @@ export class RunService {
       .where(eq(runItems.id, runItemId))
       .then((r) => r[0]);
     if (!row) throw AppError.notFound("Run item", runItemId);
-    return toRunItem(row.ri, row.rev, row.position);
+    const scoreMap = await this.scoring.scoresForRunItems([runItemId]);
+    return toRunItem(row.ri, row.rev, row.position, scoreMap.get(runItemId) ?? []);
   }
 
   async cancel(id: string): Promise<Run> {
@@ -257,6 +295,10 @@ export class RunService {
     return { id: latest.id, number: latest.number };
   }
 
+  private aggregatesFor(row: RunRow): Promise<RunAggregates> {
+    return computeAggregates(this.db, row.id, row.scorers as unknown as ScorerSpec[]);
+  }
+
   /** Terminal runs carry persisted aggregates; active ones are computed from run_items. */
   private async liveAggregate(row: RunRow): Promise<RunAggregate> {
     if (row.status === "running" || row.status === "pending") return aggregateRun(this.db, row.id);
@@ -282,7 +324,12 @@ function splitCursor(cursor: string): [string, string] {
   return [cursor.slice(0, idx), cursor.slice(idx + 1)];
 }
 
-function toRun(row: RunRow, versionNumber: number, agg: RunAggregate): Run {
+function toRun(
+  row: RunRow,
+  versionNumber: number,
+  agg: RunAggregate,
+  aggregates: RunAggregates,
+): Run {
   return {
     id: row.id,
     datasetId: row.datasetId,
@@ -305,6 +352,7 @@ function toRun(row: RunRow, versionNumber: number, agg: RunAggregate): Run {
     createdAt: row.createdAt,
     startedAt: row.startedAt ?? null,
     finishedAt: row.finishedAt ?? null,
+    aggregates,
   };
 }
 
@@ -312,6 +360,7 @@ function toRunItem(
   ri: RunItemRow,
   rev: typeof itemRevisions.$inferSelect,
   position: number,
+  scores: Score[],
 ): RunItem {
   return {
     id: ri.id,
@@ -333,5 +382,6 @@ function toRunItem(
     error: ri.error ?? null,
     startedAt: ri.startedAt ?? null,
     finishedAt: ri.finishedAt ?? null,
+    scores,
   };
 }

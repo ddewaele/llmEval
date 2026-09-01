@@ -8,4 +8,5 @@ export * from "./llm/messages.js";
 export * from "./llm/pricing.js";
 export * from "./runs/engine.js";
 export * from "./runs/job-runner.js";
+export * from "./scoring/index.js";
 export { canonicalJson, contentHash, sha256 } from "./util/hash.js";
