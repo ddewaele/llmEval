@@ -44,7 +44,7 @@ pnpm test:watch
 | 2   | DB schema + dataset/item services | `feature/db-datasets-items`          | done (#2, #3) |
 | 3   | REST API + OpenAPI                | `feature/rest-api`                   | done (#4)     |
 | 4   | MCP server (datasets/items)       | `feature/mcp-server`                 | done (#5)     |
-| 5   | Dataset versions                  | `feature/versions`                   | pending       |
+| 5   | Dataset versions                  | `feature/versions`                   | done (#6)     |
 | 6   | Import JSON/JSONL/CSV/XLSX        | `feature/import`                     | pending       |
 | 7   | Run engine                        | `feature/run-engine`                 | pending       |
 | 8   | Deterministic scoring             | `feature/deterministic-scoring`      | pending       |
