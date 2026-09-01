@@ -38,22 +38,22 @@ pnpm test:watch
 
 ## Plan slice status
 
-| #   | Slice                             | Branch                               | Status  |
-| --- | --------------------------------- | ------------------------------------ | ------- |
-| 1   | Scaffolding, CI, skills, docs     | `feature/scaffolding`                | done    |
-| 2   | DB schema + dataset/item services | `feature/db-datasets-items`          | pending |
-| 3   | REST API + OpenAPI                | `feature/rest-api`                   | pending |
-| 4   | MCP server (datasets/items)       | `feature/mcp-server`                 | pending |
-| 5   | Dataset versions                  | `feature/versions`                   | pending |
-| 6   | Import JSON/JSONL/CSV/XLSX        | `feature/import`                     | pending |
-| 7   | Run engine                        | `feature/run-engine`                 | pending |
-| 8   | Deterministic scoring             | `feature/deterministic-scoring`      | pending |
-| 9   | LLM judge + compare               | `feature/llm-judge-compare`          | pending |
-| 10  | Web: datasets/items/versions      | `feature/web-datasets`               | pending |
-| 11  | Web: runs + compare               | `feature/web-runs`                   | pending |
-| 12  | Ground-truth generation + review  | `feature/ground-truth-generation`    | pending |
-| 13  | Synthetic item generation         | `feature/synthetic-items`            | pending |
-| 14  | MCP resources, prompts, docs      | `feature/mcp-resources-prompts-docs` | pending |
+| #   | Slice                             | Branch                               | Status        |
+| --- | --------------------------------- | ------------------------------------ | ------------- |
+| 1   | Scaffolding, CI, skills, docs     | `feature/scaffolding`                | done (#1)     |
+| 2   | DB schema + dataset/item services | `feature/db-datasets-items`          | done (#2, #3) |
+| 3   | REST API + OpenAPI                | `feature/rest-api`                   | done (#4)     |
+| 4   | MCP server (datasets/items)       | `feature/mcp-server`                 | done (#5)     |
+| 5   | Dataset versions                  | `feature/versions`                   | pending       |
+| 6   | Import JSON/JSONL/CSV/XLSX        | `feature/import`                     | pending       |
+| 7   | Run engine                        | `feature/run-engine`                 | pending       |
+| 8   | Deterministic scoring             | `feature/deterministic-scoring`      | pending       |
+| 9   | LLM judge + compare               | `feature/llm-judge-compare`          | pending       |
+| 10  | Web: datasets/items/versions      | `feature/web-datasets`               | pending       |
+| 11  | Web: runs + compare               | `feature/web-runs`                   | pending       |
+| 12  | Ground-truth generation + review  | `feature/ground-truth-generation`    | pending       |
+| 13  | Synthetic item generation         | `feature/synthetic-items`            | pending       |
+| 14  | MCP resources, prompts, docs      | `feature/mcp-resources-prompts-docs` | pending       |
 
 ## Using the MCP server from Claude Code (available from slice 4)
 
