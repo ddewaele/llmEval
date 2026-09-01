@@ -192,4 +192,68 @@ describe("MCP endpoint (stateless streamable HTTP)", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0]!.text).toMatch(/name|Invalid/i);
   });
+
+  it("exposes resources and prompts", async () => {
+    const created = await callTool("create_dataset", { name: "res" });
+    const ds = created.data as { id: string };
+    await callTool("add_items", { datasetId: ds.id, items: [{ input: "q", expected: "a" }] });
+    await callTool("publish_version", { datasetId: ds.id });
+    const started = await callTool("start_run", {
+      datasetId: ds.id,
+      scorers: [{ key: "exact", type: "exact_match" }],
+    });
+    const run = started.data as { id: string };
+    await services.runs.wait(run.id);
+
+    const templates = (await rpc("resources/templates/list")).result as {
+      resourceTemplates: Array<{ uriTemplate: string }>;
+    };
+    expect(templates.resourceTemplates.map((t) => t.uriTemplate)).toEqual(
+      expect.arrayContaining(["llmeval://datasets/{id}", "llmeval://runs/{id}/failures"]),
+    );
+    const list = (await rpc("resources/list")).result as { resources: Array<{ uri: string }> };
+    expect(list.resources.map((r) => r.uri)).toContain("llmeval://datasets");
+
+    const summary = (await rpc("resources/read", { uri: `llmeval://datasets/${ds.id}` }))
+      .result as {
+      contents: Array<{ text: string }>;
+    };
+    expect(JSON.parse(summary.contents[0]!.text)).toMatchObject({
+      dataset: { id: ds.id },
+      versions: [{ number: 1 }],
+    });
+    const jsonl = (
+      await rpc("resources/read", { uri: `llmeval://datasets/${ds.id}/versions/1/items` })
+    ).result as {
+      contents: Array<{ text: string; mimeType: string }>;
+    };
+    expect(jsonl.contents[0]!.mimeType).toBe("application/jsonl");
+    expect(JSON.parse(jsonl.contents[0]!.text)).toMatchObject({ input: "q" });
+    const failures = (await rpc("resources/read", { uri: `llmeval://runs/${run.id}/failures` }))
+      .result as {
+      contents: Array<{ text: string }>;
+    };
+    expect(JSON.parse(failures.contents[0]!.text)).toMatchObject({ failing: 1 });
+
+    const prompts = (await rpc("prompts/list")).result as { prompts: Array<{ name: string }> };
+    expect(prompts.prompts.map((p) => p.name).sort()).toEqual([
+      "build_eval",
+      "triage_run",
+      "write_rubric",
+    ]);
+    const triage = (await rpc("prompts/get", { name: "triage_run", arguments: { runId: run.id } }))
+      .result as {
+      messages: Array<{ content: { text: string } }>;
+    };
+    expect(triage.messages[0]!.content.text).toMatch(new RegExp(`Triage run ${run.id}`));
+    const build = (
+      await rpc("prompts/get", {
+        name: "build_eval",
+        arguments: { task: "extract codes", samplePath: "/tmp/x.xlsx" },
+      })
+    ).result as {
+      messages: Array<{ content: { text: string } }>;
+    };
+    expect(build.messages[0]!.content.text).toMatch(/import_items with dryRun=true/);
+  });
 });

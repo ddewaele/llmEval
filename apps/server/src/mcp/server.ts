@@ -1,6 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { Services } from "@llmeval/core";
+import { registerPrompts } from "./prompts.js";
+import { registerResources } from "./resources.js";
 import {
   registerDatasetTools,
   registerGenerationTools,
@@ -18,7 +20,9 @@ export function createMcpServer(services: Services): McpServer {
     instructions:
       "llmEval manages LLM evaluation datasets. Typical flow: create_dataset → add_items/import_items → " +
       "(generate_ground_truths, review_items) → publish_version → start_run → get_run/list_run_items → compare_runs. " +
-      "Ids are ULIDs; list_* tools truncate long strings, get_* tools return full content.",
+      "Ids are ULIDs; list_* tools truncate long strings, get_* tools return full content. " +
+      "Resources: llmeval://datasets, llmeval://datasets/{id}, llmeval://datasets/{id}/versions/{n}/items, llmeval://runs/{id}/summary, llmeval://runs/{id}/failures. " +
+      "Prompts: build_eval, triage_run, write_rubric.",
   });
   registerDatasetTools(server, services);
   registerItemTools(server, services);
@@ -27,6 +31,8 @@ export function createMcpServer(services: Services): McpServer {
   registerRunTools(server, services);
   registerScoringTools(server, services);
   registerModelTools(server, services);
+  registerResources(server, services);
+  registerPrompts(server, services);
   return server;
 }
 
