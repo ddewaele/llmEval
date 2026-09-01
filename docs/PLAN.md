@@ -6,21 +6,22 @@ Davy wants a minimalistic, LLM-first evaluation harness for LLM applications, wr
 
 Decisions already taken with the user:
 
-| Topic | Decision |
-|---|---|
-| LLM access | Multi-provider via **LangChain.js v1** (`initChatModel`), Anthropic + OpenAI + Ollama in v1 |
-| Scoring in v1 | Deterministic scorers **and** LLM-as-judge |
-| Frontend | Vite + React 19 + Tailwind 4 SPA |
-| Merge policy | Claude squash-merges a PR once CI is green |
-| Storage (my default) | SQLite (better-sqlite3 + drizzle) — single file, zero setup, single user |
-| Backend (my default) | Hono + Zod + OpenAPI generation |
-| MCP (my default) | Streamable HTTP served by the API process at `/mcp`, plus a stdio shim for Claude Code |
+| Topic                | Decision                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| LLM access           | Multi-provider via **LangChain.js v1** (`initChatModel`), Anthropic + OpenAI + Ollama in v1 |
+| Scoring in v1        | Deterministic scorers **and** LLM-as-judge                                                  |
+| Frontend             | Vite + React 19 + Tailwind 4 SPA                                                            |
+| Merge policy         | Claude squash-merges a PR once CI is green                                                  |
+| Storage (my default) | SQLite (better-sqlite3 + drizzle) — single file, zero setup, single user                    |
+| Backend (my default) | Hono + Zod + OpenAPI generation                                                             |
+| MCP (my default)     | Streamable HTTP served by the API process at `/mcp`, plus a stdio shim for Claude Code      |
 
 ---
 
 ## Part 1 — Functional requirements
 
 ### 1.1 Datasets
+
 - FR-D1 Create a dataset with name, description, optional tags.
 - FR-D2 A dataset has a mutable **draft** working set of items and zero or more immutable **published versions** (`v1`, `v2`, …).
 - FR-D3 Publish the draft as a new version with an optional changelog note. Publishing is the only way to create a version; versions are never edited.
@@ -28,23 +29,27 @@ Decisions already taken with the user:
 - FR-D5 Diff two versions: added / removed / changed items.
 
 ### 1.2 Items
+
 - FR-I1 An item = `{ input, expected?, metadata }` where `input` is JSON (string prompt, object of template variables, or chat messages array), `expected` is the ground truth (JSON), `metadata` holds `tags[]`, `source` (`manual | imported | synthetic`), `notes`.
 - FR-I2 CRUD on draft items; bulk add; bulk delete; tag filtering; full-text search over input.
 - FR-I3 Import items from **JSON array, JSONL, CSV, XLSX** (upload or paste). Column/field mapping for CSV (which column is input, which is expected). Dry-run validation report before commit.
 - FR-I4 Export a version as JSONL.
 
 ### 1.3 Synthetic data generation
+
 - FR-S1 Generate N items from: a natural-language description of the task, optional seed items (few-shot), optional JSON schema for `input`, choice of model.
 - FR-S2 Generation runs as a background job with progress; output lands in the draft set with `source=synthetic` and provenance (model, prompt, job id).
 - FR-S3 Simple dedup against existing draft items (normalized exact match on input).
 - FR-S4 Generated items are reviewable: accept / edit / reject before publishing.
 
 ### 1.4 Ground truths
+
 - FR-G1 Generate `expected` for items lacking one, using a chosen model and an instruction prompt; stored with provenance (`generated_by_model`, `reviewed=false`).
 - FR-G2 Human review: edit `expected`, mark reviewed. UI filter "unreviewed ground truths".
 - FR-G3 Ground truth belongs to the item in the draft; it is frozen into the published version like any other field.
 
 ### 1.5 Execution (runs)
+
 - FR-R1 A run = (dataset version, task config, scorer list). A **task config** = provider:model string, params (temperature, max tokens, …), system prompt, prompt template (mustache-style `{{field}}` over `input`), optional structured-output schema.
 - FR-R2 Run executes every item with bounded concurrency, per-item retry on transient errors, per-item error isolation (one failure does not abort the run).
 - FR-R3 Lifecycle: `pending → running → completed | failed | cancelled`. Cancel is cooperative. A restart of the server resumes or marks interrupted runs.
@@ -54,6 +59,7 @@ Decisions already taken with the user:
 - FR-R7 Re-run with the same config in one click / one tool call.
 
 ### 1.6 Scoring
+
 - FR-SC1 Deterministic scorers: `exact_match`, `contains`, `regex`, `json_equal` (order-insensitive keys), `numeric_tolerance`, `set_overlap` (precision / recall / F1 over list-valued expected vs output). Each yields `score ∈ [0,1]`, `pass: boolean`, optional detail.
 - FR-SC2 LLM-as-judge scorer: judge model, rubric prompt, structured output `{ score, pass, rationale }`. Judge sees input, expected, actual.
 - FR-SC3 Scorers attach to a run at creation; a run can also be **re-scored** later with additional scorers without re-executing.
@@ -61,12 +67,14 @@ Decisions already taken with the user:
 - FR-SC5 Compare two runs (same dataset version): per-item side-by-side outputs and scores, delta of aggregates.
 
 ### 1.7 MCP (first-class client)
+
 - FR-M1 Every capability above is reachable via MCP tools; tool descriptions are written for an LLM caller; results are compact JSON with pagination.
 - FR-M2 MCP resources expose datasets/versions/runs as readable documents.
 - FR-M3 MCP prompts for common workflows ("create an eval for X", "analyze run failures").
 - FR-M4 Works from Claude Code via a one-line `claude mcp add` (stdio) or via the HTTP endpoint.
 
 ### 1.8 Non-functional
+
 - Single user, local-first, no auth in v1 (bind to localhost; optional static bearer token for the HTTP MCP endpoint).
 - Provider API keys only via env vars; never stored in DB or returned by API.
 - All LLM calls go through one adapter so usage/cost capture is uniform.
@@ -78,15 +86,15 @@ Decisions already taken with the user:
 
 ### 2.1 Stack & versions (verified on npm, 2026-09-01)
 
-| Layer | Choice |
-|---|---|
-| Runtime / tooling | Node 22, pnpm 9 workspaces, TypeScript **5.x** (pin 5.9; TS 7 is the new Go-based compiler, avoid until tooling catches up), tsx, vitest 4, eslint + prettier |
-| Backend | hono 4.13, @hono/node-server 2, @hono/zod-openapi 1.6 (Zod 4), zod 4.5 |
-| DB | better-sqlite3 13, drizzle-orm 0.45, drizzle-kit 0.31 (WAL mode, `busy_timeout=5000`) |
-| LLM | langchain 1.5 (`initChatModel` from `langchain/chat_models/universal`), @langchain/core 1.2, @langchain/anthropic 1.5, @langchain/openai 1.5, @langchain/ollama 1.3 |
-| MCP | @modelcontextprotocol/sdk 1.30 (Streamable HTTP at `/mcp` + stdio proxy) |
-| Web | vite 8, react 19, tailwindcss 4, @tanstack/react-query 5 |
-| Misc | p-limit (concurrency), ulid (ids), papaparse (CSV) |
+| Layer             | Choice                                                                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime / tooling | Node 22, pnpm 9 workspaces, TypeScript **5.x** (pin 5.9; TS 7 is the new Go-based compiler, avoid until tooling catches up), tsx, vitest 4, eslint + prettier       |
+| Backend           | hono 4.13, @hono/node-server 2, @hono/zod-openapi 1.6 (Zod 4), zod 4.5                                                                                              |
+| DB                | better-sqlite3 13, drizzle-orm 0.45, drizzle-kit 0.31 (WAL mode, `busy_timeout=5000`)                                                                               |
+| LLM               | langchain 1.5 (`initChatModel` from `langchain/chat_models/universal`), @langchain/core 1.2, @langchain/anthropic 1.5, @langchain/openai 1.5, @langchain/ollama 1.3 |
+| MCP               | @modelcontextprotocol/sdk 1.30 (Streamable HTTP at `/mcp` + stdio proxy)                                                                                            |
+| Web               | vite 8, react 19, tailwindcss 4, @tanstack/react-query 5                                                                                                            |
+| Misc              | p-limit (concurrency), ulid (ids), papaparse (CSV)                                                                                                                  |
 
 Default models (env, overridable): `DEFAULT_MODEL=anthropic:claude-opus-5`, `JUDGE_MODEL=anthropic:claude-opus-5`, `GENERATION_MODEL=anthropic:claude-opus-5`.
 
@@ -115,21 +123,22 @@ llmEval/
 
 Versioning approach: **logical items + immutable content revisions + join table**.
 
-| Table | Key columns |
-|---|---|
-| `datasets` | id (ulid), name, description, tags JSON, input_schema JSON?, archived_at, created_at, updated_at |
-| `items` | id, dataset_id, **head_revision_id**, position, deleted_at, expected_source (`human|generated|imported|null`), expected_model, expected_rationale, expected_reviewed_at |
-| `item_revisions` | id, item_id, dataset_id, **content_hash** (sha256 canonical JSON of input+expected+metadata), input JSON, expected JSON, metadata JSON, created_at. UNIQUE(item_id, content_hash) |
-| `dataset_versions` | id, dataset_id, **number**, label, notes, item_count, snapshot_hash, created_at. UNIQUE(dataset_id, number) |
-| `version_items` | version_id, item_id, revision_id, position, expected_reviewed bool. PK(version_id, item_id) |
-| `task_configs` | id, name, dataset_id?, model (`provider:model`), params JSON, system_prompt, user_template, output_schema JSON |
-| `scorer_configs` | id, name, type, config JSON |
-| `runs` | id, dataset_id, version_id, name, task_config_id?, **config_snapshot** JSON, **scorers** JSON, status, concurrency, triggered_by (`ui|mcp|api`), total/completed/failed_items, input_tokens, output_tokens, cost_usd, max_cost_usd?, error, created/started/finished_at |
-| `run_items` | id, run_id, item_id, revision_id, status, attempt, rendered_messages JSON, output JSON, raw_response JSON, input_tokens, output_tokens, cost_usd, latency_ms, error, started/finished_at. UNIQUE(run_id, item_id) |
-| `scores` | id, run_item_id, **scorer_key**, scorer_type, scorer_config JSON, score REAL 0–1, passed, rationale, details JSON, judge_model, judge_tokens, judge_cost_usd, error. UNIQUE(run_item_id, scorer_key) |
-| `jobs` | id, kind (`generate_items|generate_ground_truths|rescore|import`), dataset_id, status, params JSON, progress JSON, result JSON, error, timestamps |
+| Table              | Key columns                                                                                                                                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `datasets`         | id (ulid), name, description, tags JSON, input_schema JSON?, archived_at, created_at, updated_at                                                                                                                  |
+| `items`            | id, dataset_id, **head_revision_id**, position, deleted_at, expected_source (`human                                                                                                                               | generated              | imported                                                                                                                      | null`), expected_model, expected_rationale, expected_reviewed_at                         |
+| `item_revisions`   | id, item_id, dataset_id, **content_hash** (sha256 canonical JSON of input+expected+metadata), input JSON, expected JSON, metadata JSON, created_at. UNIQUE(item_id, content_hash)                                 |
+| `dataset_versions` | id, dataset_id, **number**, label, notes, item_count, snapshot_hash, created_at. UNIQUE(dataset_id, number)                                                                                                       |
+| `version_items`    | version_id, item_id, revision_id, position, expected_reviewed bool. PK(version_id, item_id)                                                                                                                       |
+| `task_configs`     | id, name, dataset_id?, model (`provider:model`), params JSON, system_prompt, user_template, output_schema JSON                                                                                                    |
+| `scorer_configs`   | id, name, type, config JSON                                                                                                                                                                                       |
+| `runs`             | id, dataset_id, version_id, name, task_config_id?, **config_snapshot** JSON, **scorers** JSON, status, concurrency, triggered_by (`ui                                                                             | mcp                    | api`), total/completed/failed_items, input_tokens, output_tokens, cost_usd, max_cost_usd?, error, created/started/finished_at |
+| `run_items`        | id, run_id, item_id, revision_id, status, attempt, rendered_messages JSON, output JSON, raw_response JSON, input_tokens, output_tokens, cost_usd, latency_ms, error, started/finished_at. UNIQUE(run_id, item_id) |
+| `scores`           | id, run_item_id, **scorer_key**, scorer_type, scorer_config JSON, score REAL 0–1, passed, rationale, details JSON, judge_model, judge_tokens, judge_cost_usd, error. UNIQUE(run_item_id, scorer_key)              |
+| `jobs`             | id, kind (`generate_items                                                                                                                                                                                         | generate_ground_truths | rescore                                                                                                                       | import`), dataset_id, status, params JSON, progress JSON, result JSON, error, timestamps |
 
 Semantics:
+
 - **Draft** = items with `deleted_at IS NULL`, content via `head_revision_id`. Edit = insert revision (no-op if hash exists), move head. Delete = soft. Published versions never change.
 - **Publish** = copy `(item_id, head_revision_id)` into `version_items`; refuse if `snapshot_hash` equals latest version. Warn (not block) if unreviewed generated ground truths exist.
 - **Diff** = set ops on `(item_id, revision_id)`: added / removed / changed. Pure SQL.
@@ -156,15 +165,27 @@ Executor input rules: (1) messages array → sent as-is, `system_prompt` prepend
 ### 2.6 Scoring (`packages/core/src/scoring/registry.ts`)
 
 ```ts
-interface Scorer<C> { type: string; configSchema: z.ZodType<C>; description: string;
-  score(ctx: { input; expected; output; config: C; signal }): Promise<{ score: number; passed?: boolean; rationale?: string; details?: Json }> }
+interface Scorer<C> {
+  type: string;
+  configSchema: z.ZodType<C>;
+  description: string;
+  score(ctx: {
+    input;
+    expected;
+    output;
+    config: C;
+    signal;
+  }): Promise<{ score: number; passed?: boolean; rationale?: string; details?: Json }>;
+}
 ```
+
 Registry: `exact_match` (trim, caseInsensitive, path), `contains`, `regex` (match or extract-group-then-compare), `json_equal` (path, ignoreKeyOrder, subset), `numeric_tolerance` (abs/rel, path), `llm_judge` (model, rubric, passThreshold 0.7; fixed grader system prompt; `withStructuredOutput({score, pass, rationale})`; judge tokens/cost on the score row and rolled into run cost).
 Scoring is inline during execution so the UI shows scores live. **Re-score** = `jobs` row of kind `rescore` upserting on `(run_item_id, scorer_key)` and appending to `runs.scorers`. **Compare** joins two runs on `item_id` (works across versions; one-sided items flagged), returns per-item deltas and aggregate deltas.
 
 ### 2.7 Generation (`packages/core/src/services/generation/`)
 
 Separate services sharing `JobRunner`, not the run tables.
+
 - `generateItems({datasetId, description, count, seedItemIds?, inputSchema?, model?, tags?})`: batches of 10 via structured output `{items:[{input, expected?}]}` (item schema from `dataset.input_schema` when present; LangChain accepts raw JSON Schema). Prompt includes seeds + sample of existing inputs. Dedup by canonical-JSON hash of normalized input against existing revisions and within batch; stop after `count` or 3 all-duplicate batches. Lands in draft with `source: 'synthetic'`, `metadata.job_id`.
 - `generateGroundTruths({datasetId, itemIds? (default: missing expected), instructions?, model?, outputSchema?})`: one call per item, writes new revision with `expected`, sets `expected_source='generated'`, `expected_model`, `expected_rationale`, `expected_reviewed_at=null`. Review via `update_item` (→ `human`) or `review_items(ids, approve)`.
 
@@ -172,14 +193,14 @@ Separate services sharing `JobRunner`, not the run tables.
 
 Principles: snake_case; descriptions written for an LLM ("Use when…", defaults, side effects); `inputSchema` = the shared Zod object; `list_*` return `{items, next_cursor}` with strings truncated to 200 chars; long ops return `job_id`/`run_id` immediately. Logic lives only in core services; REST route = `validate → service → c.json`, MCP tool = `same schema → same service → JSON.stringify`; `AppError(code)` maps to HTTP status or `isError: true`.
 
-| Group | Tools |
-|---|---|
-| datasets | `list_datasets`, `create_dataset`, `get_dataset`, `update_dataset`, `delete_dataset` |
-| items | `add_items`, `import_items` (json/jsonl/csv, content or path, mapping), `list_items` (version?, filter: missing_expected/unreviewed/tag, cursor), `update_item`, `review_items`, `delete_items` |
-| versions | `publish_version`, `list_versions`, `diff_versions`, `export_version` |
-| generation | `generate_items`, `generate_ground_truths`, `get_job`, `cancel_job` |
-| runs | `list_models`, `start_run`, `get_run`, `list_runs`, `cancel_run`, `resume_run` |
-| results | `list_run_items` (status?, scorer_key?, max_score?, cursor), `get_run_item`, `score_run`, `compare_runs` (only_regressions?) |
+| Group      | Tools                                                                                                                                                                                           |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| datasets   | `list_datasets`, `create_dataset`, `get_dataset`, `update_dataset`, `delete_dataset`                                                                                                            |
+| items      | `add_items`, `import_items` (json/jsonl/csv, content or path, mapping), `list_items` (version?, filter: missing_expected/unreviewed/tag, cursor), `update_item`, `review_items`, `delete_items` |
+| versions   | `publish_version`, `list_versions`, `diff_versions`, `export_version`                                                                                                                           |
+| generation | `generate_items`, `generate_ground_truths`, `get_job`, `cancel_job`                                                                                                                             |
+| runs       | `list_models`, `start_run`, `get_run`, `list_runs`, `cancel_run`, `resume_run`                                                                                                                  |
+| results    | `list_run_items` (status?, scorer_key?, max_score?, cursor), `get_run_item`, `score_run`, `compare_runs` (only_regressions?)                                                                    |
 
 Resources: `llmeval://datasets/{id}`, `llmeval://datasets/{id}/versions/{n}/items` (JSONL), `llmeval://runs/{id}/summary`, `llmeval://runs/{id}/failures`.
 Prompts: `build_eval` (task description → dataset + GT + run plan), `triage_run` (analyze failures, propose prompt fixes), `write_rubric` (draft an `llm_judge` rubric from a dataset).
@@ -191,7 +212,7 @@ Prompts: `build_eval` (task description → dataset + GT + run plan), `triage_ru
 ### 2.10 Frontend pages (`apps/web/src/pages/`)
 
 1. **Datasets** — table + create dialog.
-2. **Dataset detail** — tabs *Items* (draft table, inline edit, review toggles, import/generate dialogs), *Versions* (publish, diff), *Runs* (list + new-run form).
+2. **Dataset detail** — tabs _Items_ (draft table, inline edit, review toggles, import/generate dialogs), _Versions_ (publish, diff), _Runs_ (list + new-run form).
 3. **Run detail** — status/progress via SSE, per-scorer aggregate cards, per-item table with filters, row drawer (messages, raw response, rationales), re-score button.
 4. **Run compare** — aggregate deltas, per-item side-by-side, regression filter.
 5. **Settings** — model registry + env-key presence (never values).
@@ -202,26 +223,27 @@ Prompts: `build_eval` (task description → dataset + GT + run plan), `triage_ru
 
 ### 2.12 Delivery plan — one PR per slice, in order
 
-| # | Branch | Slice | Acceptance |
-|---|---|---|---|
-| 1 | `feature/scaffolding` | pnpm workspaces, tsconfig, eslint/prettier, vitest, empty packages, CI, PR template, `.claude/skills/*`, CLAUDE.md, README stub | CI green |
-| 2 | `feature/db-datasets-items` | drizzle schema + migrations, `DatasetService`, `ItemService` (draft CRUD, revisions), unit tests | Tests create/edit/delete items |
-| 3 | `feature/rest-api` | Hono app, zod-openapi routes for datasets/items, error mapping, `/openapi.json` | curl CRUD works, spec valid |
-| 4 | `feature/mcp-server` | Streamable HTTP `/mcp`, stdio proxy, dataset/item tools, `list_models` | Claude Code creates a dataset + items |
-| 5 | `feature/versions` | publish/list/diff/export; REST + MCP | v1 → edit → v2, diff shows change |
-| 6 | `feature/import` | JSON/JSONL/CSV/XLSX, mapping, dry-run, dedup; REST + MCP | CSV and XLSX import visible in draft |
-| 7 | `feature/run-engine` | LangChain adapter, templating, RunEngine/JobRunner, usage/cost, cancel/resume, recovery, SSE; REST + MCP | Run against Ollama/Anthropic; server restart resumes |
-| 8 | `feature/deterministic-scoring` | registry incl. `set_overlap`, inline scoring, aggregates, rescore job; REST + MCP | Aggregates correct; rescore adds scorer |
-| 9 | `feature/llm-judge-compare` | `llm_judge`, `compare_runs`; REST + MCP | Two runs compared with rationales |
-| 10 | `feature/web-datasets` | Vite app, pages 1–2 + settings, served by Hono in prod | Manage dataset in browser |
-| 11 | `feature/web-runs` | pages 3–4 with SSE | Watch a run live; compare |
-| 12 | `feature/ground-truth-generation` | GT job, review flow, publish warning; REST/MCP/web | Generate, edit one, approve rest, publish |
-| 13 | `feature/synthetic-items` | item generation job with dedup + schema; REST/MCP/web | 50 items from a description, no dupes |
-| 14 | `feature/mcp-resources-prompts-docs` | resources, 3 prompts, README with Claude Code setup, `models.json` docs | Fresh clone → eval driven from Claude Code |
+| #   | Branch                               | Slice                                                                                                                           | Acceptance                                           |
+| --- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 1   | `feature/scaffolding`                | pnpm workspaces, tsconfig, eslint/prettier, vitest, empty packages, CI, PR template, `.claude/skills/*`, CLAUDE.md, README stub | CI green                                             |
+| 2   | `feature/db-datasets-items`          | drizzle schema + migrations, `DatasetService`, `ItemService` (draft CRUD, revisions), unit tests                                | Tests create/edit/delete items                       |
+| 3   | `feature/rest-api`                   | Hono app, zod-openapi routes for datasets/items, error mapping, `/openapi.json`                                                 | curl CRUD works, spec valid                          |
+| 4   | `feature/mcp-server`                 | Streamable HTTP `/mcp`, stdio proxy, dataset/item tools, `list_models`                                                          | Claude Code creates a dataset + items                |
+| 5   | `feature/versions`                   | publish/list/diff/export; REST + MCP                                                                                            | v1 → edit → v2, diff shows change                    |
+| 6   | `feature/import`                     | JSON/JSONL/CSV/XLSX, mapping, dry-run, dedup; REST + MCP                                                                        | CSV and XLSX import visible in draft                 |
+| 7   | `feature/run-engine`                 | LangChain adapter, templating, RunEngine/JobRunner, usage/cost, cancel/resume, recovery, SSE; REST + MCP                        | Run against Ollama/Anthropic; server restart resumes |
+| 8   | `feature/deterministic-scoring`      | registry incl. `set_overlap`, inline scoring, aggregates, rescore job; REST + MCP                                               | Aggregates correct; rescore adds scorer              |
+| 9   | `feature/llm-judge-compare`          | `llm_judge`, `compare_runs`; REST + MCP                                                                                         | Two runs compared with rationales                    |
+| 10  | `feature/web-datasets`               | Vite app, pages 1–2 + settings, served by Hono in prod                                                                          | Manage dataset in browser                            |
+| 11  | `feature/web-runs`                   | pages 3–4 with SSE                                                                                                              | Watch a run live; compare                            |
+| 12  | `feature/ground-truth-generation`    | GT job, review flow, publish warning; REST/MCP/web                                                                              | Generate, edit one, approve rest, publish            |
+| 13  | `feature/synthetic-items`            | item generation job with dedup + schema; REST/MCP/web                                                                           | 50 items from a description, no dupes                |
+| 14  | `feature/mcp-resources-prompts-docs` | resources, 3 prompts, README with Claude Code setup, `models.json` docs                                                         | Fresh clone → eval driven from Claude Code           |
 
 Slices 10–11 depend only on REST and can be interleaved with 7–9 if desired.
 
 ### 2.13 Risks to verify in slice 1
+
 - `@hono/zod-openapi` 1.6 with Zod 4 import paths; MCP SDK Streamable HTTP under Hono's Node adapter (Fetch↔Node bridge); LangChain `withStructuredOutput({includeRaw:true})` + `usage_metadata` across all three providers (Ollama may return nulls).
 - SQLite single-writer: keep writes short, never hold a transaction across an LLM call.
 - Cost runaway: judge doubles calls; generation loops. `max_cost_usd`, pricing visible via `list_models`, unknown cost = null.
@@ -232,26 +254,29 @@ Slices 10–11 depend only on REST and can be interleaved with 7–9 if desired.
 ## Part 3 — Development workflow, skills, CI
 
 ### Branching & PR process
+
 - `main` is protected in practice: nothing is committed to it directly. Every slice goes on `feature/<kebab-name>` (or `fix/…`, `chore/…`).
-- Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`), imperative subject ≤ 72 chars, body explaining *why* when non-obvious.
+- Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`), imperative subject ≤ 72 chars, body explaining _why_ when non-obvious.
 - PR title = conventional-commit style; PR body has `## Summary`, `## Changes`, `## Test plan`, `## Notes/Follow-ups`. PRs link the plan slice they implement.
 - CI (GitHub Actions) must be green before merge: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
 - Merge = squash merge via `gh pr merge --squash --delete-branch`, then `git checkout main && git pull`.
 
 ### Project-scoped skills (live in the repo under `.claude/skills/`, so they ship with the code)
+
 These adapt Davy's existing global skills (`global-start-new-feature`, `global-push-new-feature`) to this repo's conventions (pnpm, no GitHub issue per PR, auto-merge). Each is a `SKILL.md`.
 
-| Skill | Purpose |
-|---|---|
-| `feature-start` | `git checkout main && git pull`, create `feature/<name>` from a short description, confirm clean tree. |
-| `feature-commit` | Review `git status`/diff, group changes into one or more conventional commits with clear messages, never commit secrets/build output. |
-| `feature-pr` | Ensure branch pushed, run `pnpm lint typecheck test` locally, write PR body from the branch's commits + plan slice, `gh pr create`, watch CI in background, report. |
-| `feature-merge` | Verify CI green + no conflicts, `gh pr merge --squash --delete-branch`, sync `main`, delete local branch, report. |
-| `feature-ship` | Orchestrates commit → pr → wait CI → merge for a finished slice (the "happy path" one-shot). |
+| Skill            | Purpose                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `feature-start`  | `git checkout main && git pull`, create `feature/<name>` from a short description, confirm clean tree.                                                              |
+| `feature-commit` | Review `git status`/diff, group changes into one or more conventional commits with clear messages, never commit secrets/build output.                               |
+| `feature-pr`     | Ensure branch pushed, run `pnpm lint typecheck test` locally, write PR body from the branch's commits + plan slice, `gh pr create`, watch CI in background, report. |
+| `feature-merge`  | Verify CI green + no conflicts, `gh pr merge --squash --delete-branch`, sync `main`, delete local branch, report.                                                   |
+| `feature-ship`   | Orchestrates commit → pr → wait CI → merge for a finished slice (the "happy path" one-shot).                                                                        |
 
 Also add `CLAUDE.md` at repo root: stack summary, commands, conventions, the slice list with status, and "how to run the MCP server against Claude Code".
 
 ### Repo hygiene
+
 - `.github/workflows/ci.yml`, `.github/pull_request_template.md`.
 - `.env.example` with all provider keys; `.gitignore` for `.env`, `data/*.sqlite`, `dist`, `node_modules`.
 - Root `README.md`: what it is, quickstart, MCP setup snippet.
@@ -263,6 +288,7 @@ Also add `CLAUDE.md` at repo root: stack summary, commands, conventions, the sli
 Per slice (enforced by CI and the `feature-pr` skill): `pnpm lint && pnpm typecheck && pnpm test && pnpm build` green; vitest unit tests for services (in-memory SQLite via `:memory:` drizzle client), route tests via Hono's `app.request()`, scorer table tests.
 
 End-to-end after slice 9 (repeat at slice 14 from a fresh clone following README):
+
 1. `pnpm dev` starts server on :3000; `claude mcp add --transport http llmeval http://localhost:3000/mcp`.
 2. From Claude Code: `create_dataset` → `add_items` (5 items with expected) → `publish_version` → `start_run` with `ollama:llama3.2` (or `anthropic:claude-opus-5`) and scorers `exact_match` + `llm_judge` → poll `get_run` until `completed` → `list_run_items` shows outputs, scores, tokens, cost → `score_run` adds `contains` → `compare_runs` between two runs.
 3. Kill the server mid-run, restart, confirm the run resumes and finishes.

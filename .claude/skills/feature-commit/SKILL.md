@@ -14,7 +14,7 @@ Turn the working tree into clean commits. Never commit to `main` directly; if on
    - subject: `type(scope): imperative summary` ≤ 72 chars, no trailing period.
      Types: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `ci`, `build`.
      Scope is the package or area: `core`, `server`, `web`, `shared`, `mcp`, `skills`, `ci`.
-   - blank line, then a body explaining *why* and any non-obvious decision. Wrap at 72.
+   - blank line, then a body explaining _why_ and any non-obvious decision. Wrap at 72.
    - never `WIP`, `fix stuff`, `updates`.
 5. Commit with `git commit -m "<subject>" -m "<body>"`.
 6. Show `git log --oneline main..HEAD` as the report.
