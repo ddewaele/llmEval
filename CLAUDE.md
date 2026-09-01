@@ -17,7 +17,8 @@ Minimalistic, LLM-first evaluation harness in TypeScript. Full plan and requirem
 ```
 pnpm install
 pnpm dev            # server on :3000 (tsx watch)
-pnpm dev:web        # vite on :5173, proxies /api to :3000
+pnpm dev:web        # vite on :5173 with HMR, proxies /api to :3000
+pnpm build && pnpm dev   # server also serves the built SPA at http://localhost:3000/
 pnpm verify             # lint + format:check + typecheck + test + build  (same as GitHub Actions)
 pnpm test:watch
 ```
@@ -49,7 +50,7 @@ pnpm test:watch
 | 7   | Run engine                        | `feature/run-engine`                 | done (#8)     |
 | 8   | Deterministic scoring             | `feature/deterministic-scoring`      | done (#9)     |
 | 9   | LLM judge + compare               | `feature/llm-judge-compare`          | done (#10)    |
-| 10  | Web: datasets/items/versions      | `feature/web-datasets`               | pending       |
+| 10  | Web: datasets/items/versions      | `feature/web-datasets`               | done (#11)    |
 | 11  | Web: runs + compare               | `feature/web-runs`                   | pending       |
 | 12  | Ground-truth generation + review  | `feature/ground-truth-generation`    | pending       |
 | 13  | Synthetic item generation         | `feature/synthetic-items`            | pending       |
