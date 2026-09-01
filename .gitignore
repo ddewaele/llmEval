@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# local data
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# tooling
+.turbo/
+coverage/
+.vite/
+*.log
+
+# editors / OS
+.DS_Store
+.idea/
+.vscode/
