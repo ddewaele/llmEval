@@ -15,6 +15,8 @@
   "dependencies": {
     "@libsql/client": "^0.17.4",
     "@llmeval/shared": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "ulid": "^3.0.2",
     "zod": "^4.5.4"
   },
   "devDependencies": {

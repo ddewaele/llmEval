@@ -6,8 +6,11 @@ allowed-tools: Bash
 
 Merge the current branch's PR once CI is green.
 
-1. `gh pr view --json number,state,mergeable,statusCheckRollup,url`. Require: state OPEN,
-   mergeable MERGEABLE, every check SUCCESS. Otherwise stop and report what is blocking.
+1. `gh pr checks --fail-fast` as a standalone command; it must exit 0. Then
+   `gh pr view --json number,state,mergeable,statusCheckRollup,url` and require state OPEN and
+   mergeable MERGEABLE. Otherwise stop and report what is blocking. `main` has branch protection
+   requiring the "Lint, typecheck, test, build" check (enforced for admins too), so a merge with a
+   red check is rejected by GitHub as a last line of defence; do not try to bypass it.
 2. `gh pr merge <number> --squash --delete-branch` . The squash commit title is the PR title;
    the body is the PR summary. Do not use `--admin`.
 3. `git checkout main && git pull --ff-only origin main`.
