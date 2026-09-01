@@ -17,6 +17,7 @@ import {
   type Scorer,
 } from "../scoring/index.js";
 import { CompareService } from "./compare.js";
+import { GenerationService } from "./generation.js";
 import { VersionService } from "./versions.js";
 
 export interface Services {
@@ -27,6 +28,7 @@ export interface Services {
   imports: ImportService;
   runs: RunService;
   compare: CompareService;
+  generation: GenerationService;
   jobs$: JobService;
   scoring: ScoringService;
   scorers: ScorerRegistry;
@@ -76,6 +78,7 @@ export function createServices(db: Db, opts: CreateServicesOptions = {}): Servic
     imports: new ImportService(db, items),
     runs: runService,
     compare: new CompareService(db, runService),
+    generation: new GenerationService(db, config, models, modelFactory, jobs, jobService, items),
     jobs$: jobService,
     scoring,
     scorers,
@@ -88,6 +91,7 @@ export function createServices(db: Db, opts: CreateServicesOptions = {}): Servic
 export {
   CompareService,
   DatasetService,
+  GenerationService,
   ImportService,
   ItemService,
   JobService,

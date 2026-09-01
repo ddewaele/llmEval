@@ -213,6 +213,54 @@ export class ItemService {
     return this.get(id);
   }
 
+  /**
+   * Store a model-generated ground truth: new revision with `expected`, provenance set to
+   * `generated` with the model and rationale, and the reviewed flag cleared.
+   */
+  async setGeneratedExpected(
+    id: string,
+    expected: JsonValue,
+    meta: { model: string; rationale?: string | null },
+  ): Promise<Item> {
+    const row = await this.requireRow(id);
+    const head = await this.requireRevision(row.headRevisionId!);
+    const hash = contentHash({ input: head.input, expected, metadata: head.metadata as JsonValue });
+    const now = nowIso();
+    let revisionId = head.id;
+    if (hash !== head.contentHash) {
+      const existing = await this.db.query.itemRevisions.findFirst({
+        where: and(eq(itemRevisions.itemId, id), eq(itemRevisions.contentHash, hash)),
+      });
+      if (existing) revisionId = existing.id;
+      else {
+        revisionId = newId();
+        await this.db.insert(itemRevisions).values({
+          id: revisionId,
+          itemId: id,
+          datasetId: row.datasetId,
+          contentHash: hash,
+          input: head.input,
+          expected,
+          metadata: head.metadata,
+          createdAt: now,
+        });
+      }
+    }
+    await this.db
+      .update(items)
+      .set({
+        headRevisionId: revisionId,
+        expectedSource: "generated",
+        expectedModel: meta.model,
+        expectedRationale: meta.rationale ?? null,
+        expectedReviewedAt: null,
+        updatedAt: now,
+      })
+      .where(eq(items.id, id));
+    await this.db.update(datasets).set({ updatedAt: now }).where(eq(datasets.id, row.datasetId));
+    return this.get(id);
+  }
+
   /** Mark ground truths as reviewed (or clear the flag). Items without `expected` are skipped. */
   async review(ids: string[], approve: boolean): Promise<{ updated: number }> {
     if (ids.length === 0) return { updated: 0 };
