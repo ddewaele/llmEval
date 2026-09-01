@@ -7,7 +7,9 @@ import { JobRunner } from "../runs/job-runner.js";
 import { DatasetService } from "./datasets.js";
 import { ImportService } from "./import.js";
 import { ItemService } from "./items.js";
+import { JobService } from "./jobs.js";
 import { RunService } from "./runs.js";
+import { ScorerRegistry, ScoringService } from "../scoring/index.js";
 import { VersionService } from "./versions.js";
 
 export interface Services {
@@ -17,6 +19,9 @@ export interface Services {
   versions: VersionService;
   imports: ImportService;
   runs: RunService;
+  jobs$: JobService;
+  scoring: ScoringService;
+  scorers: ScorerRegistry;
   models: ModelRegistry;
   engine: RunEngine;
   jobs: JobRunner;
@@ -39,17 +44,42 @@ export function createServices(db: Db, opts: CreateServicesOptions = {}): Servic
   const engine = new RunEngine(db, config, models, modelFactory, jobs, opts.engine);
   const items = new ItemService(db);
   const versions = new VersionService(db);
+  const scorers = new ScorerRegistry();
+  const jobService = new JobService(db, jobs);
+  const scoring = new ScoringService(db, scorers, jobs, jobService);
+  engine.onItemCompleted((ctx) =>
+    scoring
+      .scoreItem(
+        ctx.runItemId,
+        { input: ctx.input, expected: ctx.expected, output: ctx.output, signal: ctx.signal },
+        ctx.scorers,
+      )
+      .then(() => undefined),
+  );
   return {
     config,
     datasets: new DatasetService(db),
     items,
     versions,
     imports: new ImportService(db, items),
-    runs: new RunService(db, config, versions, models, engine),
+    runs: new RunService(db, config, versions, models, engine, scorers, scoring),
+    jobs$: jobService,
+    scoring,
+    scorers,
     models,
     engine,
     jobs,
   };
 }
 
-export { DatasetService, ImportService, ItemService, ModelRegistry, RunService, VersionService };
+export {
+  DatasetService,
+  ImportService,
+  ItemService,
+  JobService,
+  ModelRegistry,
+  RunService,
+  ScoringService,
+  ScorerRegistry,
+  VersionService,
+};

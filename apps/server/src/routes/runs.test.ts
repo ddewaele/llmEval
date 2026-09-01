@@ -54,6 +54,17 @@ describe("run routes", () => {
 
     const cancel = await app.request(`/api/runs/${run.id}/cancel`, { method: "POST" });
     expect(cancel.status).toBe(409);
+
+    const scorers = (await (await app.request("/api/scorers")).json()) as Array<{ type: string }>;
+    expect(scorers.map((sc) => sc.type)).toContain("set_overlap");
+    const rescore = await app.request(
+      `/api/runs/${run.id}/scores`,
+      jsonReq("POST", { scorer: { key: "exact", type: "exact_match" } }),
+    );
+    expect(rescore.status).toBe(202);
+    const job = (await rescore.json()) as { id: string };
+    const jobRes = await app.request(`/api/jobs/${job.id}`);
+    expect(jobRes.status).toBe(200);
   });
 
   it("rejects unknown models with a structured error", async () => {

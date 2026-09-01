@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { IdSchema, PaginationQuerySchema } from "./common.js";
 import { JsonObjectSchema, JsonValueSchema } from "./json.js";
+import { RunAggregatesSchema, ScoreSchema, ScorerSpecSchema } from "./score.js";
 
 export const ModelParamsSchema = z
   .object({
@@ -31,13 +32,6 @@ export const TaskConfigSchema = z.object({
     .describe("JSON Schema; when set the model is forced to return a matching object"),
 });
 export type TaskConfig = z.infer<typeof TaskConfigSchema>;
-
-export const ScorerSpecSchema = z.object({
-  key: z.string().min(1).max(64).describe("Unique key within the run, e.g. 'exact' or 'judge'"),
-  type: z.string().min(1),
-  config: JsonObjectSchema.default({}),
-});
-export type ScorerSpec = z.infer<typeof ScorerSpecSchema>;
 
 export const RunStatusSchema = z.enum([
   "pending",
@@ -105,6 +99,7 @@ export const RunSchema = z.object({
   createdAt: z.string(),
   startedAt: z.string().nullable(),
   finishedAt: z.string().nullable(),
+  aggregates: RunAggregatesSchema,
 });
 export type Run = z.infer<typeof RunSchema>;
 
@@ -134,6 +129,7 @@ export const RunItemSchema = z.object({
   error: z.string().nullable(),
   startedAt: z.string().nullable(),
   finishedAt: z.string().nullable(),
+  scores: z.array(ScoreSchema),
 });
 export type RunItem = z.infer<typeof RunItemSchema>;
 
@@ -145,6 +141,11 @@ export type ListRunsQuery = z.infer<typeof ListRunsQuerySchema>;
 
 export const ListRunItemsQuerySchema = PaginationQuerySchema.extend({
   status: RunItemStatusSchema.optional(),
+  scorerKey: z
+    .string()
+    .optional()
+    .describe("Only items that failed this scorer (passed=false, or score <= maxScore when given)"),
+  maxScore: z.coerce.number().min(0).max(1).optional(),
 });
 export type ListRunItemsQuery = z.infer<typeof ListRunItemsQuerySchema>;
 

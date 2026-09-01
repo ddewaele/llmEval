@@ -13,6 +13,7 @@ import {
   ReviewItemsSchema,
   RunItemStatusSchema,
   RunStatusSchema,
+  ScorerSpecSchema,
   StartRunSchema,
   UpdateDatasetSchema,
   UpdateItemSchema,
@@ -262,10 +263,12 @@ export function registerRunTools(server: McpServer, services: Services) {
   tool(
     server,
     "list_run_items",
-    "List per-item results of a run (input, expected, output, tokens, latency, error), cursor-paginated. Filter by status (completed/failed/pending/…) to find failures. Long strings truncated; use get_run_item for full content.",
+    "List per-item results of a run (input, expected, output, scores, tokens, latency, error), cursor-paginated. Filter by status (completed/failed/pending/…), or by scorerKey to get only items that failed that scorer (optionally score <= maxScore). Long strings truncated; use get_run_item for full content.",
     z.object({
       runId: IdSchema,
       status: RunItemStatusSchema.optional(),
+      scorerKey: z.string().optional(),
+      maxScore: z.number().min(0).max(1).optional(),
       cursor: z.string().optional(),
       limit: z.number().int().min(1).max(200).default(25),
     }),
@@ -296,6 +299,38 @@ export function registerRunTools(server: McpServer, services: Services) {
     "Resume a cancelled, interrupted or failed run: re-enqueues its pending and cancelled items without redoing completed ones.",
     z.object({ id: IdSchema }),
     (a) => services.runs.resume(a.id),
+  );
+}
+
+export function registerScoringTools(server: McpServer, services: Services) {
+  tool(
+    server,
+    "list_scorers",
+    "List scorer types with descriptions and config JSON schemas. Deterministic: exact_match, contains, regex, json_equal, numeric_tolerance, set_overlap (precision/recall/F1 for code lists). Pass scorers to start_run as [{key, type, config}].",
+    z.object({}),
+    () => services.scorers.list(),
+    { readOnly: true },
+  );
+
+  tool(
+    server,
+    "score_run",
+    "Add a scorer to an existing run and score its completed items in the background without re-running the model. Returns a job; poll get_job. Use overwrite=true to replace a scorer with the same key.",
+    z.object({ runId: IdSchema, scorer: ScorerSpecSchema, overwrite: z.boolean().default(false) }),
+    (a) => services.scoring.scoreRun(a.runId, a.scorer, { overwrite: a.overwrite }),
+  );
+
+  tool(
+    server,
+    "get_job",
+    "Get a background job (rescore, generation, import): status, progress {done,total}, result or error.",
+    z.object({ id: IdSchema }),
+    (a) => services.jobs$.get(a.id),
+    { readOnly: true },
+  );
+
+  tool(server, "cancel_job", "Cancel a running background job.", z.object({ id: IdSchema }), (a) =>
+    services.jobs$.cancel(a.id),
   );
 }
 
