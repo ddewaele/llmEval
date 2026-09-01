@@ -3,7 +3,9 @@ import {
   AddItemsSchema,
   DeleteItemsSchema,
   ErrorResponseSchema,
+  GenerateGroundTruthsSchema,
   IdSchema,
+  JobSchema,
   ImportRequestSchema,
   ImportResultSchema,
   ItemSchema,
@@ -72,6 +74,32 @@ itemRoutes.openapi(
   }),
   async (c) =>
     c.json(await c.var.services.imports.import(c.req.valid("param").id, c.req.valid("json")), 200),
+);
+
+itemRoutes.openapi(
+  createRoute({
+    method: "post",
+    path: "/datasets/{id}/generate/ground-truths",
+    tags: ["generation"],
+    summary: "Generate ground truths with a model for items lacking one (background job)",
+    request: {
+      params: IdParams,
+      body: json(GenerateGroundTruthsSchema.omit({ datasetId: true }), "Generation request"),
+    },
+    responses: {
+      202: json(JobSchema, "Generation job"),
+      404: notFound,
+      409: json(ErrorResponseSchema, "Model not configured"),
+    },
+  }),
+  async (c) =>
+    c.json(
+      await c.var.services.generation.generateGroundTruths({
+        ...c.req.valid("json"),
+        datasetId: c.req.valid("param").id,
+      }),
+      202,
+    ),
 );
 
 itemRoutes.openapi(

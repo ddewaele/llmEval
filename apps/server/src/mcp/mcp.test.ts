@@ -149,6 +149,23 @@ describe("MCP endpoint (stateless streamable HTTP)", () => {
 
     expect((cmp.data as { summary: { compared: number } }).summary.compared).toBe(2);
 
+    const gen = await callTool("generate_ground_truths", {
+      datasetId: ds.id,
+      instructions: "Extract codes.",
+    });
+
+    expect((gen.data as { kind: string }).kind).toBe("generate_ground_truths");
+
+    await services.jobs$.wait((gen.data as { id: string }).id);
+
+    expect(
+      (
+        (await callTool("get_job", { id: (gen.data as { id: string }).id })).data as {
+          status: string;
+        }
+      ).status,
+    ).toBe("completed");
+
     const models = await callTool("list_models", {});
     expect((models.data as Array<{ id: string }>).map((m) => m.id)).toContain(
       "anthropic:claude-opus-5",

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router";
-import type { DatasetSummary, ImportResult, Item } from "@llmeval/shared";
+import type { DatasetSummary, ImportResult, Item, Job } from "@llmeval/shared";
 import { api } from "../../lib/api.js";
 import { Empty, ErrorText, Field, Json, Modal, parseJsonOrText } from "../../components/ui.js";
 
@@ -16,6 +16,7 @@ export function ItemsTab() {
   const [editing, setEditing] = useState<Item | null>(null);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const query = { filter, search: search || undefined, limit: 50 };
@@ -103,6 +104,9 @@ export function ItemsTab() {
               </button>
             </>
           )}
+          <button className="btn btn-sm" onClick={() => setGenerating(true)}>
+            Generate ground truths
+          </button>
           <button className="btn btn-sm" onClick={() => setImporting(true)}>
             Import
           </button>
@@ -201,6 +205,14 @@ export function ItemsTab() {
       )}
       {importing && (
         <ImportDialog datasetId={d.id} onClose={() => setImporting(false)} onSaved={invalidate} />
+      )}
+      {generating && (
+        <GenerateDialog
+          datasetId={d.id}
+          selected={[...selected]}
+          onClose={() => setGenerating(false)}
+          onSaved={invalidate}
+        />
       )}
     </div>
   );
@@ -542,6 +554,150 @@ function ImportDialog({
         >
           Import
         </button>
+      </div>
+    </Modal>
+  );
+}
+
+function GenerateDialog({
+  datasetId,
+  selected,
+  onClose,
+  onSaved,
+}: {
+  datasetId: string;
+  selected: string[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const models = useQuery({ queryKey: ["models"], queryFn: api.models });
+  const [instructions, setInstructions] = useState("");
+  const [model, setModel] = useState("");
+  const [schema, setSchema] = useState("");
+  const [scope, setScope] = useState<"missing" | "selected">(
+    selected.length ? "selected" : "missing",
+  );
+  const [overwrite, setOverwrite] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const job = useQuery({
+    queryKey: ["job", jobId],
+    queryFn: () => api.jobs.get(jobId!),
+    enabled: jobId !== null,
+    refetchInterval: (q) =>
+      q.state.data && ["completed", "failed", "cancelled"].includes(q.state.data.status)
+        ? false
+        : 700,
+  });
+  const start = useMutation({
+    mutationFn: () =>
+      api.generation.groundTruths(datasetId, {
+        instructions: instructions || undefined,
+        model: model || undefined,
+        outputSchema: schema.trim() ? (JSON.parse(schema) as Record<string, never>) : undefined,
+        itemIds: scope === "selected" ? selected : undefined,
+        overwrite: scope === "selected" && overwrite,
+        concurrency: 4,
+      }),
+    onSuccess: (j: Job) => setJobId(j.id),
+  });
+  const finished = Boolean(
+    job.data && ["completed", "failed", "cancelled"].includes(job.data.status),
+  );
+  useEffect(() => {
+    if (finished) onSaved();
+  }, [finished, onSaved]);
+  const result = job.data?.result as
+    | { generated: number; failed: number; skipped: number; errors: Array<{ message: string }> }
+    | null
+    | undefined;
+  return (
+    <Modal title="Generate ground truths" onClose={onClose}>
+      <p className="mb-3 text-xs text-gray-500">
+        A model drafts the expected answer per item. Results are marked{" "}
+        <em>generated / unreviewed</em>; approve or edit them before publishing.
+      </p>
+      <div className="space-y-2">
+        <Field label="Scope">
+          <select
+            className="input"
+            value={scope}
+            onChange={(e) => setScope(e.target.value as typeof scope)}
+          >
+            <option value="missing">All draft items without a ground truth</option>
+            <option value="selected" disabled={selected.length === 0}>
+              Selected items ({selected.length})
+            </option>
+          </select>
+        </Field>
+        {scope === "selected" && (
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={overwrite}
+              onChange={(e) => setOverwrite(e.target.checked)}
+            />{" "}
+            overwrite existing ground truths
+          </label>
+        )}
+        <Field label="Instructions" hint="Describe the task and what a correct answer looks like.">
+          <textarea
+            className="input"
+            rows={4}
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+          />
+        </Field>
+        <Field label="Model">
+          <select className="input" value={model} onChange={(e) => setModel(e.target.value)}>
+            <option value="">default (GENERATION_MODEL)</option>
+            {models.data
+              ?.filter((m) => m.available)
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.id}
+                </option>
+              ))}
+          </select>
+        </Field>
+        <Field label="Expected JSON schema (optional)" hint="Leave empty for free-text answers.">
+          <textarea
+            className="input mono"
+            rows={3}
+            value={schema}
+            onChange={(e) => setSchema(e.target.value)}
+          />
+        </Field>
+        <ErrorText error={start.error} />
+        {job.data && (
+          <p className="text-sm">
+            Job <span className="badge bg-gray-100 text-gray-700">{job.data.status}</span>{" "}
+            {JSON.stringify(job.data.progress)}
+            {result && (
+              <>
+                {" "}
+                · {result.generated} generated, {result.failed} failed, {result.skipped} skipped
+              </>
+            )}
+            {job.data.error && <span className="text-red-700"> {job.data.error}</span>}
+          </p>
+        )}
+        {result?.errors.slice(0, 3).map((e, i) => (
+          <p key={i} className="text-xs text-red-700">
+            {e.message}
+          </p>
+        ))}
+        <div className="flex justify-end gap-2">
+          <button className="btn" onClick={onClose}>
+            {finished ? "Done" : "Cancel"}
+          </button>
+          <button
+            className="btn btn-primary"
+            disabled={start.isPending || jobId !== null}
+            onClick={() => start.mutate()}
+          >
+            Generate
+          </button>
+        </div>
       </div>
     </Modal>
   );
