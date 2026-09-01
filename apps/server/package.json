@@ -1,0 +1,19 @@
+{
+  "name": "@llmeval/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch bin/server.ts",
+    "start": "tsx bin/server.ts",
+    "typecheck": "tsc -p .",
+    "build": "tsc -p ."
+  },
+  "dependencies": {
+    "@llmeval/core": "workspace:*",
+    "@llmeval/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.13"
+  }
+}
