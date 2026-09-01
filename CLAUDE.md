@@ -51,7 +51,7 @@ pnpm test:watch
 | 8   | Deterministic scoring             | `feature/deterministic-scoring`      | done (#9)     |
 | 9   | LLM judge + compare               | `feature/llm-judge-compare`          | done (#10)    |
 | 10  | Web: datasets/items/versions      | `feature/web-datasets`               | done (#11)    |
-| 11  | Web: runs + compare               | `feature/web-runs`                   | pending       |
+| 11  | Web: runs + compare               | `feature/web-runs`                   | done (#12)    |
 | 12  | Ground-truth generation + review  | `feature/ground-truth-generation`    | pending       |
 | 13  | Synthetic item generation         | `feature/synthetic-items`            | pending       |
 | 14  | MCP resources, prompts, docs      | `feature/mcp-resources-prompts-docs` | pending       |

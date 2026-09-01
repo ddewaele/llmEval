@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createBrowserRouter } from "react-router";
 import "./index.css";
+import { ComparePage } from "./pages/ComparePage.js";
 import { DatasetPage } from "./pages/DatasetPage.js";
 import { DatasetsPage } from "./pages/DatasetsPage.js";
 import { Layout } from "./pages/Layout.js";
@@ -34,6 +35,7 @@ const router = createBrowserRouter([
       },
       { path: "runs", element: <RunsPage /> },
       { path: "runs/:id", element: <RunPage /> },
+      { path: "compare", element: <ComparePage /> },
       { path: "settings", element: <SettingsPage /> },
     ],
   },
