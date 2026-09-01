@@ -23,12 +23,12 @@ export interface OpenDatabaseOptions {
 export async function openDatabase(opts: OpenDatabaseOptions): Promise<{ db: Db; client: Client }> {
   const isMemory = opts.path === ":memory:";
   if (!isMemory) mkdirSync(dirname(resolve(opts.path)), { recursive: true });
-  const client = createClient({ url: isMemory ? ":memory:" : `file:${opts.path}` });
-  await client.execute("PRAGMA foreign_keys = ON");
-  if (!isMemory) {
-    await client.execute("PRAGMA journal_mode = WAL");
-    await client.execute("PRAGMA busy_timeout = 5000");
-  }
+  // `timeout` is the busy timeout applied to every connection the client opens. Note that the
+  // libsql client hands the current connection to each transaction and lazily opens a new one
+  // afterwards, so connection-scoped PRAGMAs (foreign_keys) do not survive the first transaction.
+  // Services therefore never rely on FK enforcement or ON DELETE CASCADE; deletes are explicit.
+  const client = createClient({ url: isMemory ? ":memory:" : `file:${opts.path}`, timeout: 5000 });
+  if (!isMemory) await client.execute("PRAGMA journal_mode = WAL");
   const db = drizzle(client, { schema });
   if (opts.migrate !== false) await migrate(db, { migrationsFolder });
   return { db, client };

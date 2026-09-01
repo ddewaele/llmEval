@@ -33,8 +33,10 @@ describe("DatasetService", () => {
   it("deletes a dataset with its items", async () => {
     const ds = await s.datasets.create({ name: "a" });
     await s.items.add(ds.id, [{ input: "x" }]);
+    const [item] = await s.items.add(ds.id, [{ input: "y" }]);
     await s.datasets.delete(ds.id);
     await expect(s.datasets.get(ds.id)).rejects.toBeInstanceOf(AppError);
+    await expect(s.items.get(item!.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("throws NOT_FOUND for unknown ids", async () => {

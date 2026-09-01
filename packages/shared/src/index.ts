@@ -6,3 +6,4 @@ export * from "./schemas/item.js";
 export * from "./schemas/model.js";
 export * from "./schemas/version.js";
 export * from "./schemas/import.js";
+export * from "./schemas/run.js";
