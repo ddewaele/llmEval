@@ -1,3 +1,5 @@
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { createServices, loadConfig, openDatabase } from "@llmeval/core";
 import { createApp } from "../src/app.js";
@@ -19,9 +21,13 @@ if (recovered.resumed.length)
 if (recovered.interrupted.length) {
   console.log(`Marked ${recovered.interrupted.length} run(s) interrupted (AUTO_RESUME=false)`);
 }
-const app = createApp({ services, config, log: true });
+const staticDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../web/dist");
+const app = createApp({ services, config, log: true, staticDir });
 
 serve({ fetch: app.fetch, port: config.PORT }, (info) => {
   console.log(`llmEval API listening on http://localhost:${info.port}`);
   console.log(`OpenAPI: http://localhost:${info.port}/openapi.json  DB: ${config.LLMEVAL_DB_PATH}`);
+  console.log(
+    `Web UI: http://localhost:${info.port}/ (run 'pnpm build' first; or 'pnpm dev:web' for Vite on :5173)`,
+  );
 });

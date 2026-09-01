@@ -1,4 +1,7 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { bearerAuth } from "hono/bearer-auth";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
@@ -8,6 +11,7 @@ import { errorBody, handleError } from "./errors.js";
 import { datasetRoutes } from "./routes/datasets.js";
 import { handleMcpRequest } from "./mcp/server.js";
 import { itemRoutes } from "./routes/items.js";
+import { modelRoutes } from "./routes/models.js";
 import { runRoutes } from "./routes/runs.js";
 import { scoringRoutes } from "./routes/scoring.js";
 import { versionRoutes } from "./routes/versions.js";
@@ -17,6 +21,8 @@ export interface AppDeps {
   config: Config;
   /** Request logging (off in tests). */
   log?: boolean;
+  /** Directory with the built web app (apps/web/dist); served with an SPA fallback when present. */
+  staticDir?: string;
 }
 
 export function createApp(deps: AppDeps) {
@@ -54,6 +60,7 @@ export function createApp(deps: AppDeps) {
     app.use("/api/jobs/*", auth);
     app.use("/api/jobs", auth);
     app.use("/api/scorers", auth);
+    app.use("/api/models", auth);
     app.use("/mcp", auth);
     app.openAPIRegistry.registerComponent("securitySchemes", "bearer", {
       type: "http",
@@ -66,6 +73,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api", versionRoutes);
   app.route("/api", runRoutes);
   app.route("/api", scoringRoutes);
+  app.route("/api", modelRoutes);
 
   app.all("/mcp", (c) => handleMcpRequest(deps.services, c.req.raw));
 
@@ -79,6 +87,17 @@ export function createApp(deps: AppDeps) {
     },
     ...(deps.config.MCP_BEARER_TOKEN ? { security: [{ bearer: [] }] } : {}),
   });
+
+  if (deps.staticDir && existsSync(join(deps.staticDir, "index.html"))) {
+    const index = readFileSync(join(deps.staticDir, "index.html"), "utf8");
+    app.use("/*", serveStatic({ root: deps.staticDir }));
+    app.get("/*", (c) => {
+      const p = c.req.path;
+      if (p.startsWith("/api/") || p === "/api" || p === "/mcp" || p === "/openapi.json")
+        return c.notFound();
+      return c.html(index);
+    });
+  }
 
   return app;
 }
