@@ -5,3 +5,4 @@ export * from "./schemas/dataset.js";
 export * from "./schemas/item.js";
 export * from "./schemas/model.js";
 export * from "./schemas/version.js";
+export * from "./schemas/import.js";
