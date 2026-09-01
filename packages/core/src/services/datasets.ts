@@ -1,4 +1,4 @@
-import { and, count, eq, isNull, max, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import {
   AppError,
   type CreateDataset,
@@ -7,7 +7,18 @@ import {
   type UpdateDataset,
 } from "@llmeval/shared";
 import type { Db } from "../db/client.js";
-import { datasetVersions, datasets, items, runs } from "../db/schema.js";
+import {
+  datasetVersions,
+  datasets,
+  itemRevisions,
+  items,
+  jobs,
+  runItems,
+  runs,
+  scores,
+  taskConfigs,
+  versionItems,
+} from "../db/schema.js";
 import { newId } from "../util/ids.js";
 import { nowIso } from "../util/time.js";
 
@@ -90,9 +101,34 @@ export class DatasetService {
         `Dataset ${id} has ${runCount} run(s); pass force=true to delete it and its runs`,
       );
     }
-    // Runs reference datasets without cascade so historical results are protected by default.
-    await this.db.delete(runs).where(eq(runs.datasetId, id));
-    await this.db.delete(datasets).where(eq(datasets.id, id));
+    // Explicit cascade: SQLite FK enforcement is connection-scoped and not guaranteed here.
+    await this.db.transaction(async (tx) => {
+      const runIds = (
+        await tx.select({ id: runs.id }).from(runs).where(eq(runs.datasetId, id))
+      ).map((r) => r.id);
+      if (runIds.length) {
+        const runItemIds = (
+          await tx.select({ id: runItems.id }).from(runItems).where(inArray(runItems.runId, runIds))
+        ).map((r) => r.id);
+        if (runItemIds.length) await tx.delete(scores).where(inArray(scores.runItemId, runItemIds));
+        await tx.delete(runItems).where(inArray(runItems.runId, runIds));
+        await tx.delete(runs).where(inArray(runs.id, runIds));
+      }
+      const versionIds = (
+        await tx
+          .select({ id: datasetVersions.id })
+          .from(datasetVersions)
+          .where(eq(datasetVersions.datasetId, id))
+      ).map((v) => v.id);
+      if (versionIds.length)
+        await tx.delete(versionItems).where(inArray(versionItems.versionId, versionIds));
+      await tx.delete(datasetVersions).where(eq(datasetVersions.datasetId, id));
+      await tx.delete(itemRevisions).where(eq(itemRevisions.datasetId, id));
+      await tx.delete(items).where(eq(items.datasetId, id));
+      await tx.delete(jobs).where(eq(jobs.datasetId, id));
+      await tx.update(taskConfigs).set({ datasetId: null }).where(eq(taskConfigs.datasetId, id));
+      await tx.delete(datasets).where(eq(datasets.id, id));
+    });
   }
 
   private async requireRow(id: string): Promise<DatasetRow> {
