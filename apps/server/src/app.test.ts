@@ -74,6 +74,27 @@ describe("REST API", () => {
     expect((await app.request(`/api/datasets/${ds.id}`)).status).toBe(404);
   });
 
+  it("imports CSV through the API", async () => {
+    const ds = (await (
+      await app.request("/api/datasets", jsonReq("POST", { name: "imp" }))
+    ).json()) as {
+      id: string;
+    };
+    const res = await app.request(
+      `/api/datasets/${ds.id}/import`,
+      jsonReq("POST", { format: "csv", content: "input,expected\nhello,world\n" }),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { added: number; columns: string[] };
+    expect(body.added).toBe(1);
+    expect(body.columns).toEqual(["input", "expected"]);
+    const bad = await app.request(
+      `/api/datasets/${ds.id}/import`,
+      jsonReq("POST", { format: "json", content: "{oops" }),
+    );
+    expect(bad.status).toBe(400);
+  });
+
   it("returns structured validation and not-found errors", async () => {
     const bad = await app.request("/api/datasets", jsonReq("POST", { name: "" }));
     expect(bad.status).toBe(400);
