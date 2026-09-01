@@ -3,6 +3,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { Services } from "@llmeval/core";
 import {
+  CompareRunsQuerySchema,
   CreateDatasetSchema,
   DeleteItemsSchema,
   IdSchema,
@@ -303,6 +304,15 @@ export function registerRunTools(server: McpServer, services: Services) {
 }
 
 export function registerScoringTools(server: McpServer, services: Services) {
+  tool(
+    server,
+    "compare_runs",
+    "Compare two runs of the same dataset (a = baseline, b = candidate): aggregate score/pass-rate deltas per scorer, latency and cost deltas, and per-item side-by-side outputs with deltas. Set onlyRegressions=true to list just the items that got worse; scorerKey restricts to one scorer. Works across dataset versions (items missing on one side are counted).",
+    CompareRunsQuerySchema.extend({ limit: z.number().int().min(1).max(200).default(50) }),
+    (a) => services.compare.compare(a),
+    { readOnly: true, truncate: LIST_TRUNCATE },
+  );
+
   tool(
     server,
     "list_scorers",

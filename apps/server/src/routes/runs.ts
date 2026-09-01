@@ -1,8 +1,10 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { streamSSE } from "hono/streaming";
 import {
+  CompareRunsQuerySchema,
   ErrorResponseSchema,
   IdSchema,
+  RunComparisonSchema,
   ListRunItemsQuerySchema,
   ListRunsQuerySchema,
   RunItemSchema,
@@ -49,6 +51,23 @@ runRoutes.openapi(
     responses: { 200: json(pageSchema(RunSchema), "Page of runs") },
   }),
   async (c) => c.json(await c.var.services.runs.list(c.req.valid("query")), 200),
+);
+
+// Registered before /runs/{id} so the static segment wins.
+runRoutes.openapi(
+  createRoute({
+    method: "get",
+    path: "/runs/compare",
+    tags: ["runs"],
+    summary: "Compare two runs of the same dataset: per-item outputs, score deltas, regressions",
+    request: { query: CompareRunsQuerySchema },
+    responses: {
+      200: json(RunComparisonSchema, "Comparison"),
+      400: json(ErrorResponseSchema, "Different datasets or same run"),
+      404: notFound,
+    },
+  }),
+  async (c) => c.json(await c.var.services.compare.compare(c.req.valid("query")), 200),
 );
 
 runRoutes.openapi(

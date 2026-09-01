@@ -135,8 +135,19 @@ describe("MCP endpoint (stateless streamable HTTP)", () => {
       "completed",
     );
     expect(((await callTool("list_scorers", {})).data as unknown[]).length).toBeGreaterThanOrEqual(
-      6,
+      7,
     );
+
+    const second = await callTool("start_run", { datasetId: ds.id, userTemplate: "{{body}}" });
+
+    await services.runs.wait((second.data as { id: string }).id);
+
+    const cmp = await callTool("compare_runs", {
+      a: run.id,
+      b: (second.data as { id: string }).id,
+    });
+
+    expect((cmp.data as { summary: { compared: number } }).summary.compared).toBe(2);
 
     const models = await callTool("list_models", {});
     expect((models.data as Array<{ id: string }>).map((m) => m.id)).toContain(
