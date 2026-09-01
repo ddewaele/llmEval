@@ -110,6 +110,7 @@ describe("MCP endpoint (stateless streamable HTTP)", () => {
       datasetId: ds.id,
       userTemplate: "{{body}}",
       name: "mcp run",
+      scorers: [{ key: "exact", type: "exact_match" }],
     });
     expect(started.isError).toBe(false);
     const run = started.data as { id: string; versionNumber: number; triggeredBy: string };
@@ -119,7 +120,23 @@ describe("MCP endpoint (stateless streamable HTTP)", () => {
     const got = await callTool("get_run", { id: run.id });
     expect((got.data as { status: string; completedItems: number }).status).toBe("completed");
     const results = await callTool("list_run_items", { runId: run.id, status: "completed" });
-    expect((results.data as { items: unknown[] }).items).toHaveLength(2);
+    expect((results.data as { items: Array<{ scores: unknown[] }> }).items[0]!.scores).toHaveLength(
+      1,
+    );
+    expect((got.data as { aggregates: { scorers: unknown[] } }).aggregates.scorers).toHaveLength(1);
+    const rescore = await callTool("score_run", {
+      runId: run.id,
+      scorer: { key: "has", type: "contains", config: { needle: "echo" } },
+    });
+    const job = rescore.data as { id: string; kind: string };
+    expect(job.kind).toBe("rescore");
+    await services.jobs$.wait(job.id);
+    expect(((await callTool("get_job", { id: job.id })).data as { status: string }).status).toBe(
+      "completed",
+    );
+    expect(((await callTool("list_scorers", {})).data as unknown[]).length).toBeGreaterThanOrEqual(
+      6,
+    );
 
     const models = await callTool("list_models", {});
     expect((models.data as Array<{ id: string }>).map((m) => m.id)).toContain(

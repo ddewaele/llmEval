@@ -12,6 +12,8 @@ const config = loadConfig();
 const { db } = await openDatabase({ path: config.LLMEVAL_DB_PATH });
 const services = createServices(db, { config });
 const recovered = await services.runs.recover();
+const interruptedJobs = await services.jobs$.recover();
+if (interruptedJobs.length) console.log(`Marked ${interruptedJobs.length} job(s) interrupted`);
 if (recovered.resumed.length)
   console.log(`Resumed ${recovered.resumed.length} run(s) after restart`);
 if (recovered.interrupted.length) {

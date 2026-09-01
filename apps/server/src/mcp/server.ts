@@ -6,6 +6,7 @@ import {
   registerItemTools,
   registerModelTools,
   registerRunTools,
+  registerScoringTools,
   registerVersionTools,
 } from "./tools.js";
 
@@ -22,6 +23,7 @@ export function createMcpServer(services: Services): McpServer {
   registerItemTools(server, services);
   registerVersionTools(server, services);
   registerRunTools(server, services);
+  registerScoringTools(server, services);
   registerModelTools(server, services);
   return server;
 }
