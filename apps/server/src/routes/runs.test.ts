@@ -65,6 +65,15 @@ describe("run routes", () => {
     const job = (await rescore.json()) as { id: string };
     const jobRes = await app.request(`/api/jobs/${job.id}`);
     expect(jobRes.status).toBe(200);
+
+    const second = (await (
+      await app.request("/api/runs", jsonReq("POST", { datasetId, userTemplate: "Q: {{input}}" }))
+    ).json()) as { id: string };
+    await wait(second.id);
+    const cmp = await app.request(`/api/runs/compare?a=${run.id}&b=${second.id}`);
+    expect(cmp.status).toBe(200);
+    expect(((await cmp.json()) as { summary: { compared: number } }).summary.compared).toBe(2);
+    expect((await app.request(`/api/runs/compare?a=${run.id}&b=${run.id}`)).status).toBe(400);
   });
 
   it("rejects unknown models with a structured error", async () => {

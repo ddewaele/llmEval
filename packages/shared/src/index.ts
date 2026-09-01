@@ -9,3 +9,4 @@ export * from "./schemas/import.js";
 export * from "./schemas/run.js";
 export * from "./schemas/score.js";
 export * from "./schemas/job.js";
+export * from "./schemas/compare.js";

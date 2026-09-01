@@ -48,7 +48,7 @@ pnpm test:watch
 | 6   | Import JSON/JSONL/CSV/XLSX        | `feature/import`                     | done (#7)     |
 | 7   | Run engine                        | `feature/run-engine`                 | done (#8)     |
 | 8   | Deterministic scoring             | `feature/deterministic-scoring`      | done (#9)     |
-| 9   | LLM judge + compare               | `feature/llm-judge-compare`          | pending       |
+| 9   | LLM judge + compare               | `feature/llm-judge-compare`          | done (#10)    |
 | 10  | Web: datasets/items/versions      | `feature/web-datasets`               | pending       |
 | 11  | Web: runs + compare               | `feature/web-runs`                   | pending       |
 | 12  | Ground-truth generation + review  | `feature/ground-truth-generation`    | pending       |
