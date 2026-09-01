@@ -3,6 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import type { Services } from "@llmeval/core";
 import {
   registerDatasetTools,
+  registerGenerationTools,
   registerItemTools,
   registerModelTools,
   registerRunTools,
@@ -22,6 +23,7 @@ export function createMcpServer(services: Services): McpServer {
   registerDatasetTools(server, services);
   registerItemTools(server, services);
   registerVersionTools(server, services);
+  registerGenerationTools(server, services);
   registerRunTools(server, services);
   registerScoringTools(server, services);
   registerModelTools(server, services);

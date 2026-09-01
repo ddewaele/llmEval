@@ -2,6 +2,7 @@ import type {
   AvailableModel,
   Dataset,
   DatasetSummary,
+  GenerateGroundTruths,
   ImportRequest,
   ImportResult,
   Item,
@@ -87,6 +88,10 @@ export const api = {
       request<{ updated: number }>("POST", "/items/review", { ids, approve }),
     import: (datasetId: string, body: ImportRequest) =>
       request<ImportResult>("POST", `/datasets/${datasetId}/import`, body),
+  },
+  generation: {
+    groundTruths: (datasetId: string, body: Omit<GenerateGroundTruths, "datasetId">) =>
+      request<Job>("POST", `/datasets/${datasetId}/generate/ground-truths`, body),
   },
   versions: {
     list: (datasetId: string) =>

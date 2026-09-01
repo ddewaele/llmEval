@@ -6,6 +6,7 @@ import {
   CompareRunsQuerySchema,
   CreateDatasetSchema,
   DeleteItemsSchema,
+  GenerateGroundTruthsSchema,
   IdSchema,
   ImportRequestSchema,
   ItemFilterSchema,
@@ -185,6 +186,16 @@ export function registerItemTools(server: McpServer, services: Services) {
     DeleteItemsSchema,
     (a) => services.items.delete(a.ids),
     { destructive: true },
+  );
+}
+
+export function registerGenerationTools(server: McpServer, services: Services) {
+  tool(
+    server,
+    "generate_ground_truths",
+    "Use a model to draft the expected answer for draft items that have none (or for given itemIds; overwrite=true to redo existing ones). Provide instructions describing what a correct answer is and, for structured answers, an outputSchema. Runs in the background: returns a job, poll get_job. Generated truths are marked unreviewed; review with list_items(filter='unreviewed') then review_items or update_item.",
+    GenerateGroundTruthsSchema,
+    (a) => services.generation.generateGroundTruths(a),
   );
 }
 
