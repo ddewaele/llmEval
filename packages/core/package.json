@@ -13,6 +13,11 @@
     "build": "tsc -p ."
   },
   "dependencies": {
-    "@llmeval/shared": "workspace:*"
+    "@libsql/client": "^0.17.4",
+    "@llmeval/shared": "workspace:*",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10"
   }
 }

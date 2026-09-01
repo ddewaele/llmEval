@@ -12,7 +12,7 @@ Decisions already taken with the user:
 | Scoring in v1        | Deterministic scorers **and** LLM-as-judge                                                  |
 | Frontend             | Vite + React 19 + Tailwind 4 SPA                                                            |
 | Merge policy         | Claude squash-merges a PR once CI is green                                                  |
-| Storage (my default) | SQLite (better-sqlite3 + drizzle) — single file, zero setup, single user                    |
+| Storage (my default) | SQLite (@libsql/client + drizzle) — single file, zero setup, single user                    |
 | Backend (my default) | Hono + Zod + OpenAPI generation                                                             |
 | MCP (my default)     | Streamable HTTP served by the API process at `/mcp`, plus a stdio shim for Claude Code      |
 
@@ -90,7 +90,7 @@ Decisions already taken with the user:
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Runtime / tooling | Node 22, pnpm 9 workspaces, TypeScript **5.x** (pin 5.9; TS 7 is the new Go-based compiler, avoid until tooling catches up), tsx, vitest 4, eslint + prettier       |
 | Backend           | hono 4.13, @hono/node-server 2, @hono/zod-openapi 1.6 (Zod 4), zod 4.5                                                                                              |
-| DB                | better-sqlite3 13, drizzle-orm 0.45, drizzle-kit 0.31 (WAL mode, `busy_timeout=5000`)                                                                               |
+| DB                | @libsql/client 0.17, drizzle-orm 0.45, drizzle-kit 0.31 (WAL mode, `busy_timeout=5000`)                                                                             |
 | LLM               | langchain 1.5 (`initChatModel` from `langchain/chat_models/universal`), @langchain/core 1.2, @langchain/anthropic 1.5, @langchain/openai 1.5, @langchain/ollama 1.3 |
 | MCP               | @modelcontextprotocol/sdk 1.30 (Streamable HTTP at `/mcp` + stdio proxy)                                                                                            |
 | Web               | vite 8, react 19, tailwindcss 4, @tanstack/react-query 5                                                                                                            |
