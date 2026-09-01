@@ -5,6 +5,7 @@ import {
   registerDatasetTools,
   registerItemTools,
   registerModelTools,
+  registerRunTools,
   registerVersionTools,
 } from "./tools.js";
 
@@ -20,6 +21,7 @@ export function createMcpServer(services: Services): McpServer {
   registerDatasetTools(server, services);
   registerItemTools(server, services);
   registerVersionTools(server, services);
+  registerRunTools(server, services);
   registerModelTools(server, services);
   return server;
 }

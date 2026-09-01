@@ -8,6 +8,7 @@ import { errorBody, handleError } from "./errors.js";
 import { datasetRoutes } from "./routes/datasets.js";
 import { handleMcpRequest } from "./mcp/server.js";
 import { itemRoutes } from "./routes/items.js";
+import { runRoutes } from "./routes/runs.js";
 import { versionRoutes } from "./routes/versions.js";
 
 export interface AppDeps {
@@ -46,6 +47,9 @@ export function createApp(deps: AppDeps) {
     app.use("/api/datasets", auth);
     app.use("/api/items/*", auth);
     app.use("/api/items", auth);
+    app.use("/api/runs/*", auth);
+    app.use("/api/runs", auth);
+    app.use("/api/run-items/*", auth);
     app.use("/mcp", auth);
     app.openAPIRegistry.registerComponent("securitySchemes", "bearer", {
       type: "http",
@@ -56,6 +60,7 @@ export function createApp(deps: AppDeps) {
   app.route("/api", datasetRoutes);
   app.route("/api", itemRoutes);
   app.route("/api", versionRoutes);
+  app.route("/api", runRoutes);
 
   app.all("/mcp", (c) => handleMcpRequest(deps.services, c.req.raw));
 

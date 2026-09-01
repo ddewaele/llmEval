@@ -11,6 +11,9 @@ import {
   NewItemSchema,
   PublishVersionSchema,
   ReviewItemsSchema,
+  RunItemStatusSchema,
+  RunStatusSchema,
+  StartRunSchema,
   UpdateDatasetSchema,
   UpdateItemSchema,
   VersionRefSchema,
@@ -221,6 +224,78 @@ export function registerVersionTools(server: McpServer, services: Services) {
     z.object({ datasetId: IdSchema, versionNumber: z.number().int().positive() }),
     async (a) => ({ jsonl: await services.versions.exportJsonl(a.datasetId, a.versionNumber) }),
     { readOnly: true },
+  );
+}
+
+export function registerRunTools(server: McpServer, services: Services) {
+  tool(
+    server,
+    "start_run",
+    "Execute a dataset version against a model. Runs in the background: returns immediately with the run id; poll get_run until status is completed/failed/cancelled, then read results with list_run_items. Defaults: latest version (unpublished draft changes are auto-published first), DEFAULT_MODEL, concurrency from config. Provide systemPrompt and userTemplate ({{field}} placeholders over the item input, {{input}} for string inputs), optional outputSchema (JSON Schema) for structured output, and scorers ([{key, type, config}]). Set maxCostUsd to cap spend.",
+    StartRunSchema.omit({ triggeredBy: true }),
+    (a) => services.runs.start({ ...a, triggeredBy: "mcp" }),
+  );
+
+  tool(
+    server,
+    "get_run",
+    "Get a run's status and progress (completedItems/failedItems/totalItems), token usage, estimated cost and the config snapshot it executed with.",
+    z.object({ id: IdSchema }),
+    (a) => services.runs.get(a.id),
+    { readOnly: true },
+  );
+
+  tool(
+    server,
+    "list_runs",
+    "List runs, newest first, optionally filtered by dataset or status.",
+    z.object({
+      datasetId: IdSchema.optional(),
+      status: RunStatusSchema.optional(),
+      cursor: z.string().optional(),
+      limit: z.number().int().min(1).max(100).default(20),
+    }),
+    (a) => services.runs.list(a),
+    { readOnly: true },
+  );
+
+  tool(
+    server,
+    "list_run_items",
+    "List per-item results of a run (input, expected, output, tokens, latency, error), cursor-paginated. Filter by status (completed/failed/pending/…) to find failures. Long strings truncated; use get_run_item for full content.",
+    z.object({
+      runId: IdSchema,
+      status: RunItemStatusSchema.optional(),
+      cursor: z.string().optional(),
+      limit: z.number().int().min(1).max(200).default(25),
+    }),
+    ({ runId, ...query }) => services.runs.listItems(runId, query),
+    { readOnly: true, truncate: LIST_TRUNCATE },
+  );
+
+  tool(
+    server,
+    "get_run_item",
+    "Get one run item in full: rendered messages sent to the model, output, raw provider metadata, usage and error.",
+    z.object({ id: IdSchema }),
+    (a) => services.runs.getItem(a.id),
+    { readOnly: true },
+  );
+
+  tool(
+    server,
+    "cancel_run",
+    "Cancel a running run. In-flight items become cancelled, pending items stay pending; resume_run continues later.",
+    z.object({ id: IdSchema }),
+    (a) => services.runs.cancel(a.id),
+  );
+
+  tool(
+    server,
+    "resume_run",
+    "Resume a cancelled, interrupted or failed run: re-enqueues its pending and cancelled items without redoing completed ones.",
+    z.object({ id: IdSchema }),
+    (a) => services.runs.resume(a.id),
   );
 }
 

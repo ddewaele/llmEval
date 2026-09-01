@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import type { Services } from "@llmeval/core";
 import { createTestContext } from "@llmeval/core/test-utils";
 import { createApp, type App } from "../app.js";
 
@@ -6,11 +7,12 @@ type JsonRpcResult = { result?: Record<string, unknown>; error?: { message: stri
 
 describe("MCP endpoint (stateless streamable HTTP)", () => {
   let app: App;
+  let services: Services;
   let nextId = 1;
 
   beforeEach(async () => {
-    const { services, config } = await createTestContext();
-    app = createApp({ services, config });
+    ({ services } = await createTestContext());
+    app = createApp({ services, config: services.config });
   });
 
   async function rpc(method: string, params: Record<string, unknown> = {}): Promise<JsonRpcResult> {
@@ -103,6 +105,21 @@ describe("MCP endpoint (stateless streamable HTTP)", () => {
     expect((frozen.data as { items: unknown[] }).items).toHaveLength(2);
     const versions = await callTool("list_versions", { datasetId: ds.id });
     expect((versions.data as Array<{ notes: string }>)[0]!.notes).toBe("initial");
+
+    const started = await callTool("start_run", {
+      datasetId: ds.id,
+      userTemplate: "{{body}}",
+      name: "mcp run",
+    });
+    expect(started.isError).toBe(false);
+    const run = started.data as { id: string; versionNumber: number; triggeredBy: string };
+    expect(run.versionNumber).toBe(2);
+    expect(run.triggeredBy).toBe("mcp");
+    await services.runs.wait(run.id);
+    const got = await callTool("get_run", { id: run.id });
+    expect((got.data as { status: string; completedItems: number }).status).toBe("completed");
+    const results = await callTool("list_run_items", { runId: run.id, status: "completed" });
+    expect((results.data as { items: unknown[] }).items).toHaveLength(2);
 
     const models = await callTool("list_models", {});
     expect((models.data as Array<{ id: string }>).map((m) => m.id)).toContain(
