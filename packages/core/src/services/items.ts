@@ -52,7 +52,11 @@ export class ItemService {
   constructor(private readonly db: Db) {}
 
   /** Bulk add items to the dataset's draft. Positions continue after the current maximum. */
-  async add(datasetId: string, newItems: NewItem[]): Promise<Item[]> {
+  async add(
+    datasetId: string,
+    newItems: NewItem[],
+    defaults: { expectedModel?: string } = {},
+  ): Promise<Item[]> {
     await this.requireDataset(datasetId);
     if (newItems.length === 0) return [];
     const now = nowIso();
@@ -88,8 +92,11 @@ export class ItemService {
         position: position++,
         deletedAt: null,
         expectedSource: expected === null ? null : (n.expectedSource ?? "human"),
-        expectedModel: null,
-        expectedRationale: null,
+        expectedModel:
+          expected !== null && n.expectedSource === "generated"
+            ? (defaults.expectedModel ?? null)
+            : null,
+        expectedRationale: expected === null ? null : (n.expectedRationale ?? null),
         expectedReviewedAt:
           expected === null ? null : n.expectedSource === "generated" ? null : now,
         createdAt: now,

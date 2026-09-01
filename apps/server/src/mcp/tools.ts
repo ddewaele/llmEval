@@ -7,6 +7,7 @@ import {
   CreateDatasetSchema,
   DeleteItemsSchema,
   GenerateGroundTruthsSchema,
+  GenerateItemsSchema,
   IdSchema,
   ImportRequestSchema,
   ItemFilterSchema,
@@ -190,6 +191,14 @@ export function registerItemTools(server: McpServer, services: Services) {
 }
 
 export function registerGenerationTools(server: McpServer, services: Services) {
+  tool(
+    server,
+    "generate_items",
+    "Create synthetic test items in a dataset's draft from a natural-language description of the task, optionally guided by seed items (few-shot) and a JSON Schema for inputs. By default each item also gets a drafted ground truth marked generated/unreviewed. Duplicates of existing or earlier items are dropped. Runs in the background: returns a job, poll get_job (result lists itemIds). Review with list_items(filter='unreviewed'), then publish_version.",
+    GenerateItemsSchema,
+    (a) => services.itemGenerator.generateItems(a),
+  );
+
   tool(
     server,
     "generate_ground_truths",

@@ -3,6 +3,7 @@ import type {
   Dataset,
   DatasetSummary,
   GenerateGroundTruths,
+  GenerateItems,
   ImportRequest,
   ImportResult,
   Item,
@@ -92,6 +93,8 @@ export const api = {
   generation: {
     groundTruths: (datasetId: string, body: Omit<GenerateGroundTruths, "datasetId">) =>
       request<Job>("POST", `/datasets/${datasetId}/generate/ground-truths`, body),
+    items: (datasetId: string, body: Omit<GenerateItems, "datasetId">) =>
+      request<Job>("POST", `/datasets/${datasetId}/generate/items`, body),
   },
   versions: {
     list: (datasetId: string) =>

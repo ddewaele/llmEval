@@ -45,6 +45,7 @@ export const NewItemSchema = z.object({
   expectedSource: ExpectedSourceSchema.optional().describe(
     "Provenance of `expected`. Defaults to `human` when expected is given",
   ),
+  expectedRationale: z.string().max(5000).optional(),
 });
 export type NewItem = z.infer<typeof NewItemSchema>;
 

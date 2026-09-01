@@ -166,6 +166,16 @@ describe("MCP endpoint (stateless streamable HTTP)", () => {
       ).status,
     ).toBe("completed");
 
+    const synth = await callTool("generate_items", {
+      datasetId: ds.id,
+      description: "More mails",
+      count: 1,
+    });
+
+    expect((synth.data as { kind: string }).kind).toBe("generate_items");
+
+    await services.jobs$.wait((synth.data as { id: string }).id);
+
     const models = await callTool("list_models", {});
     expect((models.data as Array<{ id: string }>).map((m) => m.id)).toContain(
       "anthropic:claude-opus-5",

@@ -17,6 +17,7 @@ export function ItemsTab() {
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [synthesizing, setSynthesizing] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const query = { filter, search: search || undefined, limit: 50 };
@@ -104,6 +105,9 @@ export function ItemsTab() {
               </button>
             </>
           )}
+          <button className="btn btn-sm" onClick={() => setSynthesizing(true)}>
+            Generate items
+          </button>
           <button className="btn btn-sm" onClick={() => setGenerating(true)}>
             Generate ground truths
           </button>
@@ -205,6 +209,14 @@ export function ItemsTab() {
       )}
       {importing && (
         <ImportDialog datasetId={d.id} onClose={() => setImporting(false)} onSaved={invalidate} />
+      )}
+      {synthesizing && (
+        <SynthesizeDialog
+          datasetId={d.id}
+          selected={[...selected]}
+          onClose={() => setSynthesizing(false)}
+          onSaved={invalidate}
+        />
       )}
       {generating && (
         <GenerateDialog
@@ -693,6 +705,133 @@ function GenerateDialog({
           <button
             className="btn btn-primary"
             disabled={start.isPending || jobId !== null}
+            onClick={() => start.mutate()}
+          >
+            Generate
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function SynthesizeDialog({
+  datasetId,
+  selected,
+  onClose,
+  onSaved,
+}: {
+  datasetId: string;
+  selected: string[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const models = useQuery({ queryKey: ["models"], queryFn: api.models });
+  const [description, setDescription] = useState("");
+  const [count, setCount] = useState("20");
+  const [model, setModel] = useState("");
+  const [withExpected, setWithExpected] = useState(true);
+  const [tags, setTags] = useState("synthetic");
+  const [jobId, setJobId] = useState<string | null>(null);
+  const job = useQuery({
+    queryKey: ["job", jobId],
+    queryFn: () => api.jobs.get(jobId!),
+    enabled: jobId !== null,
+    refetchInterval: (q) =>
+      q.state.data && ["completed", "failed", "cancelled"].includes(q.state.data.status)
+        ? false
+        : 700,
+  });
+  const start = useMutation({
+    mutationFn: () =>
+      api.generation.items(datasetId, {
+        description,
+        count: Number(count) || 20,
+        model: model || undefined,
+        withExpected,
+        seedItemIds: selected.length ? selected : undefined,
+        tags: tags
+          ? tags
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : undefined,
+        batchSize: 10,
+      }),
+    onSuccess: (j: Job) => setJobId(j.id),
+  });
+  const finished = Boolean(
+    job.data && ["completed", "failed", "cancelled"].includes(job.data.status),
+  );
+  useEffect(() => {
+    if (finished) onSaved();
+  }, [finished, onSaved]);
+  const result = job.data?.result as
+    | { generated: number; duplicatesDropped: number; rounds: number; errors: string[] }
+    | null
+    | undefined;
+  return (
+    <Modal title="Generate synthetic items" onClose={onClose}>
+      <p className="mb-3 text-xs text-gray-500">
+        Describe the task; a model writes new, diverse inputs (and ground truths) into the draft.
+        Duplicates are skipped.
+        {selected.length > 0 && ` The ${selected.length} selected item(s) are used as examples.`}
+      </p>
+      <div className="space-y-2">
+        <Field label="Description of the task and desired inputs">
+          <textarea
+            className="input"
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            autoFocus
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Count">
+            <input className="input" value={count} onChange={(e) => setCount(e.target.value)} />
+          </Field>
+          <Field label="Model">
+            <select className="input" value={model} onChange={(e) => setModel(e.target.value)}>
+              <option value="">default (GENERATION_MODEL)</option>
+              {models.data
+                ?.filter((m) => m.available)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.id}
+                  </option>
+                ))}
+            </select>
+          </Field>
+        </div>
+        <Field label="Tags">
+          <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} />
+        </Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={withExpected}
+            onChange={(e) => setWithExpected(e.target.checked)}
+          />{" "}
+          also draft ground truths (marked unreviewed)
+        </label>
+        <ErrorText error={start.error} />
+        {job.data && (
+          <p className="text-sm">
+            Job <span className="badge bg-gray-100 text-gray-700">{job.data.status}</span>{" "}
+            {JSON.stringify(job.data.progress)}
+            {result &&
+              ` · ${result.generated} generated, ${result.duplicatesDropped} duplicates dropped, ${result.rounds} rounds`}
+            {job.data.error && <span className="text-red-700"> {job.data.error}</span>}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <button className="btn" onClick={onClose}>
+            {finished ? "Done" : "Cancel"}
+          </button>
+          <button
+            className="btn btn-primary"
+            disabled={start.isPending || jobId !== null || !description.trim()}
             onClick={() => start.mutate()}
           >
             Generate
