@@ -24,7 +24,8 @@ pnpm test:watch
 
 ## Conventions
 
-- Never commit to `main`. One plan slice = one `feature/<name>` branch = one PR, squash-merged after CI is green.
+- Never commit to `main`. One plan slice = one `feature/<name>` branch = one PR, squash-merged after CI is green. `main` is protected: the CI check is required and force pushes are disabled.
+- Check CI with `gh pr checks --watch --fail-fast` as a standalone command (exit code matters; never pipe it). Before a PR that adds dependencies, run a clean `pnpm install --frozen-lockfile && pnpm verify`.
 - Conventional commits, imperative subject ≤ 72 chars, body explains why. PR body follows `.github/pull_request_template.md`.
 - All business logic lives in `packages/core` services. REST routes and MCP tools are thin adapters over the same services using the same Zod schemas from `packages/shared`.
 - Services throw `AppError(code)`; REST maps to HTTP status, MCP returns `isError: true`.

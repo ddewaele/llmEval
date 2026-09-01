@@ -17,5 +17,11 @@ Open a PR for the current feature branch. Do not merge here; that is `feature-me
    - body follows `.github/pull_request_template.md`: `## Summary` (what and why, link the plan
      slice), `## Changes` (bullets derived from `git log --oneline origin/main..HEAD`),
      `## Test plan` (what was run, how to verify manually), `## Notes / follow-ups`.
-7. Watch CI: `gh pr checks --watch --fail-fast` (run in the background if it takes long). Report
-   the PR URL and the CI result. If CI fails, show the failing step's log excerpt and fix it.
+7. Watch CI: run `gh pr checks --watch --fail-fast` **as its own command and act on its exit
+   code**. Never pipe it into `tail`/`grep` in the same shell line; a pipe hides the failure.
+   Report the PR URL and the CI result. If CI fails, show the failing step's log excerpt
+   (`gh run view <run-id> --log-failed`) and fix it.
+8. Before opening a PR that adds dependencies, prove a clean install works the way CI does:
+   `rm -rf node_modules packages/*/node_modules apps/*/node_modules && pnpm install --frozen-lockfile && pnpm verify`.
+   pnpm's hoisting can make a dependency resolve locally even when it is missing from the
+   package manifest.
