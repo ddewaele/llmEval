@@ -4,6 +4,8 @@ import {
   DeleteItemsSchema,
   ErrorResponseSchema,
   IdSchema,
+  ImportRequestSchema,
+  ImportResultSchema,
   ItemSchema,
   ListItemsQuerySchema,
   ReviewItemsSchema,
@@ -53,6 +55,23 @@ itemRoutes.openapi(
     );
     return c.json({ items }, 201);
   },
+);
+
+itemRoutes.openapi(
+  createRoute({
+    method: "post",
+    path: "/datasets/{id}/import",
+    tags: ["items"],
+    summary: "Import items from JSON, JSONL, CSV or XLSX into the draft (dryRun to preview)",
+    request: { params: IdParams, body: json(ImportRequestSchema, "Import request") },
+    responses: {
+      200: json(ImportResultSchema, "Import result"),
+      400: json(ErrorResponseSchema, "Unparseable content"),
+      404: notFound,
+    },
+  }),
+  async (c) =>
+    c.json(await c.var.services.imports.import(c.req.valid("param").id, c.req.valid("json")), 200),
 );
 
 itemRoutes.openapi(

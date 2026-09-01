@@ -6,6 +6,7 @@ import {
   CreateDatasetSchema,
   DeleteItemsSchema,
   IdSchema,
+  ImportRequestSchema,
   ItemFilterSchema,
   NewItemSchema,
   PublishVersionSchema,
@@ -115,6 +116,15 @@ export function registerItemTools(server: McpServer, services: Services) {
       const items = await services.items.add(a.datasetId, a.items);
       return { added: items.length, items };
     },
+    { truncate: LIST_TRUNCATE },
+  );
+
+  tool(
+    server,
+    "import_items",
+    "Import items into a dataset's draft from a file. Formats: json (array of {input, expected?, tags?} or bare values), jsonl, csv, xlsx. Pass `path` (server-local file, easiest from Claude Code) or `content` (text; base64 for xlsx). For csv/xlsx give `mapping` ({input: column | columns[], expected: column, expectedSplit: ','}) or rely on columns named input/expected. Duplicate inputs are skipped. Use dryRun=true first to see detected columns, a preview and row errors.",
+    ImportRequestSchema.extend({ datasetId: IdSchema }),
+    ({ datasetId, ...request }) => services.imports.import(datasetId, request),
     { truncate: LIST_TRUNCATE },
   );
 
