@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IdSchema } from "./common.js";
+import { BoolLikeSchema, IdSchema } from "./common.js";
 import { JsonObjectSchema } from "./json.js";
 
 export const DatasetSchema = z.object({
@@ -40,5 +40,5 @@ export const UpdateDatasetSchema = CreateDatasetSchema.partial().extend({
 export type UpdateDataset = z.infer<typeof UpdateDatasetSchema>;
 
 export const ListDatasetsQuerySchema = z.object({
-  includeArchived: z.coerce.boolean().default(false),
+  includeArchived: BoolLikeSchema.default(false),
 });

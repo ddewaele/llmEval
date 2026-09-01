@@ -10,8 +10,12 @@
     "build": "tsc -p ."
   },
   "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@hono/zod-openapi": "^1.6.1",
     "@llmeval/core": "workspace:*",
-    "@llmeval/shared": "workspace:*"
+    "@llmeval/shared": "workspace:*",
+    "hono": "^4.13.5",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "tsx": "^4.23.13"
