@@ -18,6 +18,9 @@ export function Layout() {
             <NavLink to="/runs" className={link}>
               Runs
             </NavLink>
+            <NavLink to="/compare" className={link}>
+              Compare
+            </NavLink>
             <NavLink to="/settings" className={link}>
               Settings
             </NavLink>
