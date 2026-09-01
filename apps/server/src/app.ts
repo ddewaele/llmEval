@@ -6,6 +6,7 @@ import type { Config, Services } from "@llmeval/core";
 import type { AppEnv } from "./env.js";
 import { errorBody, handleError } from "./errors.js";
 import { datasetRoutes } from "./routes/datasets.js";
+import { handleMcpRequest } from "./mcp/server.js";
 import { itemRoutes } from "./routes/items.js";
 
 export interface AppDeps {
@@ -53,6 +54,8 @@ export function createApp(deps: AppDeps) {
 
   app.route("/api", datasetRoutes);
   app.route("/api", itemRoutes);
+
+  app.all("/mcp", (c) => handleMcpRequest(deps.services, c.req.raw));
 
   app.doc31("/openapi.json", {
     openapi: "3.1.0",

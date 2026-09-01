@@ -1,17 +1,28 @@
+import { loadConfig, type Config } from "../config.js";
 import type { Db } from "../db/client.js";
+import { ModelRegistry } from "../llm/models.js";
 import { DatasetService } from "./datasets.js";
 import { ItemService } from "./items.js";
 
 export interface Services {
   datasets: DatasetService;
   items: ItemService;
+  models: ModelRegistry;
 }
 
-export function createServices(db: Db): Services {
+export interface CreateServicesOptions {
+  config?: Config;
+  /** Extra model definition files (defaults to ./models.json when it exists). */
+  modelFiles?: string[];
+}
+
+export function createServices(db: Db, opts: CreateServicesOptions = {}): Services {
+  const config = opts.config ?? loadConfig();
   return {
     datasets: new DatasetService(db),
     items: new ItemService(db),
+    models: ModelRegistry.fromFiles(config, opts.modelFiles),
   };
 }
 
-export { DatasetService, ItemService };
+export { DatasetService, ItemService, ModelRegistry };

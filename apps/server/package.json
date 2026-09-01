@@ -14,6 +14,7 @@
     "@hono/zod-openapi": "^1.6.1",
     "@llmeval/core": "workspace:*",
     "@llmeval/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "hono": "^4.13.5",
     "zod": "^4.5.4"
   },

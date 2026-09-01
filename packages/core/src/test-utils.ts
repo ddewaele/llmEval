@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
+import { loadConfig, type Config } from "./config.js";
 import { openDatabase, type Db } from "./db/client.js";
 import { createServices, type Services } from "./services/index.js";
 
@@ -15,12 +16,15 @@ afterEach(() => {
  * opens a separate connection for transactions, and every `:memory:` connection is its own
  * empty database.
  */
-export async function createTestContext(): Promise<{ db: Db; services: Services }> {
+export async function createTestContext(
+  env: Record<string, string> = {},
+): Promise<{ db: Db; services: Services; config: Config }> {
+  const config = loadConfig(env);
   const dir = mkdtempSync(join(tmpdir(), "llmeval-test-"));
   const { db, client } = await openDatabase({ path: join(dir, "test.sqlite") });
   cleanups.push(() => {
     client.close();
     rmSync(dir, { recursive: true, force: true });
   });
-  return { db, services: createServices(db) };
+  return { db, services: createServices(db, { config, modelFiles: [] }), config };
 }
