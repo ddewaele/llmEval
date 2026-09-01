@@ -62,3 +62,9 @@ pnpm test:watch
 pnpm dev
 claude mcp add --transport http llmeval http://localhost:3000/mcp
 ```
+
+## Status
+
+All 14 plan slices are merged (PRs #1–#15). Next ideas (not planned): task/scorer preset CRUD,
+multi-turn or tool-using systems under test, browser tests for the web app, auth beyond the
+bearer token.
