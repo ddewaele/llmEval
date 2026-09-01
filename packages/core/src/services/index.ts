@@ -9,7 +9,14 @@ import { ImportService } from "./import.js";
 import { ItemService } from "./items.js";
 import { JobService } from "./jobs.js";
 import { RunService } from "./runs.js";
-import { ScorerRegistry, ScoringService } from "../scoring/index.js";
+import {
+  createLlmJudge,
+  deterministicScorers,
+  ScorerRegistry,
+  ScoringService,
+  type Scorer,
+} from "../scoring/index.js";
+import { CompareService } from "./compare.js";
 import { VersionService } from "./versions.js";
 
 export interface Services {
@@ -19,6 +26,7 @@ export interface Services {
   versions: VersionService;
   imports: ImportService;
   runs: RunService;
+  compare: CompareService;
   jobs$: JobService;
   scoring: ScoringService;
   scorers: ScorerRegistry;
@@ -44,7 +52,10 @@ export function createServices(db: Db, opts: CreateServicesOptions = {}): Servic
   const engine = new RunEngine(db, config, models, modelFactory, jobs, opts.engine);
   const items = new ItemService(db);
   const versions = new VersionService(db);
-  const scorers = new ScorerRegistry();
+  const scorers = new ScorerRegistry([
+    ...deterministicScorers,
+    createLlmJudge({ config, models, factory: modelFactory }) as Scorer<unknown>,
+  ]);
   const jobService = new JobService(db, jobs);
   const scoring = new ScoringService(db, scorers, jobs, jobService);
   engine.onItemCompleted((ctx) =>
@@ -56,13 +67,15 @@ export function createServices(db: Db, opts: CreateServicesOptions = {}): Servic
       )
       .then(() => undefined),
   );
+  const runService = new RunService(db, config, versions, models, engine, scorers, scoring);
   return {
     config,
     datasets: new DatasetService(db),
     items,
     versions,
     imports: new ImportService(db, items),
-    runs: new RunService(db, config, versions, models, engine, scorers, scoring),
+    runs: runService,
+    compare: new CompareService(db, runService),
     jobs$: jobService,
     scoring,
     scorers,
@@ -73,6 +86,7 @@ export function createServices(db: Db, opts: CreateServicesOptions = {}): Servic
 }
 
 export {
+  CompareService,
   DatasetService,
   ImportService,
   ItemService,
