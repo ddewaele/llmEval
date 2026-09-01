@@ -1,1 +1,1 @@
-export const PACKAGE_NAME = "@llmeval/server";
+export { createApp, type App, type AppDeps } from "./app.js";
