@@ -8,9 +8,11 @@ import {
   IdSchema,
   ItemFilterSchema,
   NewItemSchema,
+  PublishVersionSchema,
   ReviewItemsSchema,
   UpdateDatasetSchema,
   UpdateItemSchema,
+  VersionRefSchema,
 } from "@llmeval/shared";
 import { errorResult, jsonResult } from "./format.js";
 
@@ -119,16 +121,20 @@ export function registerItemTools(server: McpServer, services: Services) {
   tool(
     server,
     "list_items",
-    "List draft items of a dataset, cursor-paginated. Filters: missing_expected (no ground truth yet), unreviewed (generated ground truth awaiting review), reviewed, tag, search (substring of input JSON). Long strings are truncated; use get_item for full content.",
+    "List items of a dataset, cursor-paginated. By default lists the editable draft; pass versionNumber to list the items frozen in a published version (filters other than cursor/limit are ignored then). Filters: missing_expected (no ground truth yet), unreviewed (generated ground truth awaiting review), reviewed, tag, search (substring of input JSON). Long strings are truncated; use get_item for full content.",
     z.object({
       datasetId: IdSchema,
+      versionNumber: z.number().int().positive().optional(),
       filter: ItemFilterSchema.default("all"),
       tag: z.string().optional(),
       search: z.string().max(200).optional(),
       cursor: z.string().optional(),
       limit: z.number().int().min(1).max(200).default(25),
     }),
-    ({ datasetId, ...query }) => services.items.list(datasetId, query),
+    ({ datasetId, versionNumber, ...query }) =>
+      versionNumber === undefined
+        ? services.items.list(datasetId, query)
+        : services.versions.listItems(datasetId, versionNumber, query),
     { readOnly: true, truncate: LIST_TRUNCATE },
   );
 
@@ -164,6 +170,47 @@ export function registerItemTools(server: McpServer, services: Services) {
     DeleteItemsSchema,
     (a) => services.items.delete(a.ids),
     { destructive: true },
+  );
+}
+
+export function registerVersionTools(server: McpServer, services: Services) {
+  tool(
+    server,
+    "publish_version",
+    "Freeze the dataset's current draft as the next immutable version (v1, v2, …). Runs always execute against a version. Refused when the draft is empty or identical to the latest version. Returns the version plus warnings (missing or unreviewed ground truths).",
+    PublishVersionSchema.extend({ datasetId: IdSchema }),
+    ({ datasetId, ...input }) => services.versions.publish(datasetId, input),
+  );
+
+  tool(
+    server,
+    "list_versions",
+    "List a dataset's published versions, newest first, with item counts and notes.",
+    z.object({ datasetId: IdSchema }),
+    (a) => services.versions.list(a.datasetId),
+    { readOnly: true },
+  );
+
+  tool(
+    server,
+    "diff_versions",
+    "Compare two versions of a dataset, or a version against the current draft (to='draft', the default), returning added, removed and changed items. Use before publishing to review pending changes.",
+    z.object({
+      datasetId: IdSchema,
+      from: VersionRefSchema,
+      to: VersionRefSchema.default("draft"),
+    }),
+    (a) => services.versions.diff(a.datasetId, a.from, a.to),
+    { readOnly: true, truncate: LIST_TRUNCATE },
+  );
+
+  tool(
+    server,
+    "export_version",
+    "Export the items of a version as JSON Lines text (one {id, input, expected, metadata} per line).",
+    z.object({ datasetId: IdSchema, versionNumber: z.number().int().positive() }),
+    async (a) => ({ jsonl: await services.versions.exportJsonl(a.datasetId, a.versionNumber) }),
+    { readOnly: true },
   );
 }
 

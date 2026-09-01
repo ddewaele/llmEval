@@ -1,7 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { Services } from "@llmeval/core";
-import { registerDatasetTools, registerItemTools, registerModelTools } from "./tools.js";
+import {
+  registerDatasetTools,
+  registerItemTools,
+  registerModelTools,
+  registerVersionTools,
+} from "./tools.js";
 
 export const MCP_SERVER_INFO = { name: "llmeval", version: "0.1.0" } as const;
 
@@ -14,6 +19,7 @@ export function createMcpServer(services: Services): McpServer {
   });
   registerDatasetTools(server, services);
   registerItemTools(server, services);
+  registerVersionTools(server, services);
   registerModelTools(server, services);
   return server;
 }

@@ -81,7 +81,7 @@ describe("MCP endpoint (stateless streamable HTTP)", () => {
     expect((added.data as { added: number }).added).toBe(2);
 
     const listed = await callTool("list_items", { datasetId: ds.id, limit: 10 });
-    const page = listed.data as { items: Array<{ input: unknown }>; nextCursor: null };
+    const page = listed.data as { items: Array<{ id: string; input: unknown }>; nextCursor: null };
     expect(page.items).toHaveLength(2);
     expect(page.items[1]!.input).toMatch(/… \[300 more chars\]$/);
 
@@ -90,6 +90,19 @@ describe("MCP endpoint (stateless streamable HTTP)", () => {
 
     const summary = await callTool("get_dataset", { id: ds.id });
     expect((summary.data as { draftItemCount: number }).draftItemCount).toBe(2);
+
+    const published = await callTool("publish_version", { datasetId: ds.id, notes: "initial" });
+    expect((published.data as { version: { number: number } }).version.number).toBe(1);
+    await callTool("update_item", {
+      id: page.items[0]!.id,
+      expected: { productCodes: [] },
+    });
+    const diff = await callTool("diff_versions", { datasetId: ds.id, from: 1 });
+    expect((diff.data as { changed: unknown[] }).changed).toHaveLength(1);
+    const frozen = await callTool("list_items", { datasetId: ds.id, versionNumber: 1 });
+    expect((frozen.data as { items: unknown[] }).items).toHaveLength(2);
+    const versions = await callTool("list_versions", { datasetId: ds.id });
+    expect((versions.data as Array<{ notes: string }>)[0]!.notes).toBe("initial");
 
     const models = await callTool("list_models", {});
     expect((models.data as Array<{ id: string }>).map((m) => m.id)).toContain(

@@ -8,6 +8,7 @@ import { errorBody, handleError } from "./errors.js";
 import { datasetRoutes } from "./routes/datasets.js";
 import { handleMcpRequest } from "./mcp/server.js";
 import { itemRoutes } from "./routes/items.js";
+import { versionRoutes } from "./routes/versions.js";
 
 export interface AppDeps {
   services: Services;
@@ -54,6 +55,7 @@ export function createApp(deps: AppDeps) {
 
   app.route("/api", datasetRoutes);
   app.route("/api", itemRoutes);
+  app.route("/api", versionRoutes);
 
   app.all("/mcp", (c) => handleMcpRequest(deps.services, c.req.raw));
 
