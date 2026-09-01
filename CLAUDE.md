@@ -53,7 +53,7 @@ pnpm test:watch
 | 10  | Web: datasets/items/versions      | `feature/web-datasets`               | done (#11)    |
 | 11  | Web: runs + compare               | `feature/web-runs`                   | done (#12)    |
 | 12  | Ground-truth generation + review  | `feature/ground-truth-generation`    | done (#13)    |
-| 13  | Synthetic item generation         | `feature/synthetic-items`            | pending       |
+| 13  | Synthetic item generation         | `feature/synthetic-items`            | done (#14)    |
 | 14  | MCP resources, prompts, docs      | `feature/mcp-resources-prompts-docs` | pending       |
 
 ## Using the MCP server from Claude Code (available from slice 4)

@@ -4,6 +4,7 @@ import {
   DeleteItemsSchema,
   ErrorResponseSchema,
   GenerateGroundTruthsSchema,
+  GenerateItemsSchema,
   IdSchema,
   JobSchema,
   ImportRequestSchema,
@@ -95,6 +96,32 @@ itemRoutes.openapi(
   async (c) =>
     c.json(
       await c.var.services.generation.generateGroundTruths({
+        ...c.req.valid("json"),
+        datasetId: c.req.valid("param").id,
+      }),
+      202,
+    ),
+);
+
+itemRoutes.openapi(
+  createRoute({
+    method: "post",
+    path: "/datasets/{id}/generate/items",
+    tags: ["generation"],
+    summary: "Generate synthetic items into the draft with a model (background job)",
+    request: {
+      params: IdParams,
+      body: json(GenerateItemsSchema.omit({ datasetId: true }), "Generation request"),
+    },
+    responses: {
+      202: json(JobSchema, "Generation job"),
+      404: notFound,
+      409: json(ErrorResponseSchema, "Model not configured"),
+    },
+  }),
+  async (c) =>
+    c.json(
+      await c.var.services.itemGenerator.generateItems({
         ...c.req.valid("json"),
         datasetId: c.req.valid("param").id,
       }),
