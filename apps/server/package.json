@@ -7,7 +7,8 @@
     "dev": "tsx watch bin/server.ts",
     "start": "tsx bin/server.ts",
     "typecheck": "tsc -p .",
-    "build": "tsc -p ."
+    "build": "tsc -p .",
+    "seed": "tsx bin/seed.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",

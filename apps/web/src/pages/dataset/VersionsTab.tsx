@@ -119,10 +119,21 @@ export function VersionsTab() {
                         className="grid grid-cols-2 gap-2 border-t border-gray-100 py-1"
                       >
                         <Json
-                          value={{ input: c.from.input, expected: c.from.expected }}
-                          max={200}
+                          value={{
+                            input: c.from.input,
+                            expected: c.from.expected,
+                            metadata: c.from.metadata,
+                          }}
+                          max={300}
                         />
-                        <Json value={{ input: c.to.input, expected: c.to.expected }} max={200} />
+                        <Json
+                          value={{
+                            input: c.to.input,
+                            expected: c.to.expected,
+                            metadata: c.to.metadata,
+                          }}
+                          max={300}
+                        />
                       </div>
                     ))}
                   </div>

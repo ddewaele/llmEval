@@ -13,8 +13,11 @@ capability is exposed over **MCP** so Claude Code can drive it; a small web UI s
 pnpm install
 cp .env.example .env          # add ANTHROPIC_API_KEY / OPENAI_API_KEY, or point OLLAMA_BASE_URL at Ollama
 pnpm build                    # builds the web app (served by the API)
+pnpm seed                     # optional: sample datasets, runs and scores to explore (`--reset` to redo)
 pnpm dev                      # API + MCP + web UI on http://localhost:3000
 ```
+
+The **[user manual](docs/MANUAL.md)** walks through dataset creation and scoring with screenshots.
 
 - Web UI: <http://localhost:3000/> (or `pnpm dev:web` for Vite with hot reload on :5173)
 - REST API: `http://localhost:3000/api/...`, OpenAPI at `/openapi.json`
