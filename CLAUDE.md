@@ -50,7 +50,7 @@ A PR is ready for review only when all of these are true and were checked with c
 ## Skills (in `.claude/skills/`)
 
 `feature-start` → `feature-commit` → `feature-pr` (opens the PR and stops) → Davy reviews and merges →
-`feature-sync`.
+`feature-sync` (the only way back to `main`: refuses on dirty or unpushed work, prunes merged branches).
 
 ## Plan slice status
 
