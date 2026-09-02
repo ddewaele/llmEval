@@ -20,6 +20,7 @@ pnpm dev            # server on :3000 (tsx watch)
 pnpm dev:web        # vite on :5173 with HMR, proxies /api to :3000
 pnpm build && pnpm dev   # server also serves the built SPA at http://localhost:3000/
 pnpm verify             # lint + format:check + typecheck + test + build  (same as GitHub Actions)
+pnpm seed [--reset] [--db PATH]   # sample datasets/runs via a deterministic seed model (apps/server/src/seed)
 pnpm test:watch
 scripts/dev.sh start [--web] [--port N] [--db PATH]   # background servers with pidfiles in .dev/
 scripts/dev.sh status | stop | restart | logs [-f] | kill-all
