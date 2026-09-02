@@ -18,8 +18,14 @@ describe("REST API", () => {
 
   it("serves health and a valid OpenAPI 3.1 document", async () => {
     expect(await (await app.request("/api/health")).json()).toEqual({ ok: true });
-    const models = (await (await app.request("/api/models")).json()) as Array<{ id: string }>;
-    expect(models.map((m) => m.id)).toContain("anthropic:claude-opus-5");
+    const catalog = (await (await app.request("/api/models")).json()) as {
+      models: Array<{ id: string }>;
+      defaults: { default: { effective: string | null } };
+      ollama: { reachable: boolean | null };
+    };
+    expect(catalog.models.map((m) => m.id)).toContain("anthropic:claude-opus-5");
+    expect(catalog.defaults.default.effective).toBe("anthropic:claude-opus-5");
+    expect(catalog.ollama.reachable).toBeNull();
     const res = await app.request("/openapi.json");
     expect(res.status).toBe(200);
     const doc = (await res.json()) as { openapi: string; paths: Record<string, unknown> };

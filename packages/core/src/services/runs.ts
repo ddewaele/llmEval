@@ -50,7 +50,7 @@ export class RunService {
   async start(input: StartRun): Promise<Run> {
     const version = await this.resolveVersion(input.datasetId, input.versionNumber);
     const config: TaskConfig = TaskConfigSchema.parse({
-      model: input.model ?? this.config.DEFAULT_MODEL,
+      model: input.model ?? this.models.resolveDefault("default").id,
       params: input.params ?? {},
       systemPrompt: input.systemPrompt ?? null,
       userTemplate: input.userTemplate ?? null,

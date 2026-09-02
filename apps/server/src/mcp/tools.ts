@@ -368,9 +368,12 @@ export function registerModelTools(server: McpServer, services: Services) {
   tool(
     server,
     "list_models",
-    "List known models as `provider:model` ids with pricing (USD per million tokens, null if unknown) and whether the provider is configured. Use these ids for start_run and generation tools.",
-    z.object({}),
-    () => services.models.list(),
+    "List known models as `provider:model` ids with pricing (USD per million tokens, null if unknown) and whether each is usable now, plus the effective default model per purpose (default run model, judge, generation; a configured default whose provider has no key falls back to an available model, local Ollama first) and Ollama status. refresh=true re-discovers installed Ollama models. Use these ids for start_run and generation tools.",
+    z.object({ refresh: z.boolean().default(false) }),
+    async (a) => {
+      if (a.refresh) await services.models.discoverOllama();
+      return services.models.catalog();
+    },
     { readOnly: true },
   );
 }

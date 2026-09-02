@@ -74,6 +74,12 @@ The customer supplies an Excel sheet of sample e-mails and the product codes eac
 `OPENAI_API_KEY`, `OLLAMA_BASE_URL`, `DEFAULT_MODEL`, `JUDGE_MODEL`, `GENERATION_MODEL`,
 `MAX_CONCURRENCY`, `AUTO_RESUME`, `ALLOW_UNLISTED_MODELS`.
 
+**Local models.** Installed Ollama models are discovered at startup (and on demand via
+`list_models(refresh=true)` or the Settings page) and registered as `ollama:<name>`. If a
+configured default (`DEFAULT_MODEL`, `JUDGE_MODEL`, `GENERATION_MODEL`) points at a provider without a
+key, llmEval falls back to the first usable model, local ones first, and shows that in Settings and
+`list_models`. For a fully local setup point all three at an installed model, e.g. `ollama:qwen2.5:7b`.
+
 **Model registry.** `list_models` / Settings show known `provider:model` ids with reference
 pricing (USD per million tokens) and whether the provider is configured. Add or override models
 by copying `models.example.json` to `models.json` at the repo root. Unknown models are rejected

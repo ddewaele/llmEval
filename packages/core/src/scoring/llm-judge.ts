@@ -60,8 +60,9 @@ export function createLlmJudge(deps: LlmJudgeDeps): Scorer<LlmJudgeConfigType> {
     usesLlm: true,
     configSchema: LlmJudgeConfig,
     async score({ input, expected, output, config, signal }): Promise<ScoreResult> {
-      const modelId = config.model ?? deps.config.JUDGE_MODEL;
-      const info = deps.models.resolve(modelId);
+      const info = config.model
+        ? deps.models.resolve(config.model)
+        : deps.models.resolveDefault("judge");
       const model = await modelFor(info.id);
       const sections = [
         config.includeInput ? `## Input\n${fmt(input)}` : null,

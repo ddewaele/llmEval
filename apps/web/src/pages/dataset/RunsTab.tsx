@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useOutletContext } from "react-router";
 import type { DatasetSummary, ScorerSpec } from "@llmeval/shared";
-import { api } from "../../lib/api.js";
+import { api, defaultModelLabel } from "../../lib/api.js";
 import {
   Empty,
   ErrorText,
@@ -27,7 +27,7 @@ export function RunsTab() {
     queryFn: () => api.runs.list({ datasetId: d.id, limit: 50 }),
     refetchInterval: 3000,
   });
-  const models = useQuery({ queryKey: ["models"], queryFn: api.models });
+  const models = useQuery({ queryKey: ["models"], queryFn: () => api.models() });
   const [model, setModel] = useState("");
   const [name, setName] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -54,7 +54,8 @@ export function RunsTab() {
       }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["runs", d.id] }),
   });
-  const available = models.data?.filter((m) => m.available) ?? [];
+  const available = models.data?.models.filter((m) => m.available) ?? [];
+  const defaults = models.data?.defaults;
 
   return (
     <div className="grid grid-cols-3 gap-4">
@@ -120,7 +121,7 @@ export function RunsTab() {
           </Field>
           <Field label="Model">
             <select className="input" value={model} onChange={(e) => setModel(e.target.value)}>
-              <option value="">default (DEFAULT_MODEL)</option>
+              <option value="">{defaultModelLabel(defaults?.default, "DEFAULT_MODEL")}</option>
               {available.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.id}

@@ -45,8 +45,9 @@ export class GenerationService {
       columns: { id: true },
     });
     if (!ds) throw AppError.notFound("Dataset", req.datasetId);
-    const modelId = req.model ?? this.config.GENERATION_MODEL;
-    const info = this.models.resolve(modelId);
+    const info = req.model
+      ? this.models.resolve(req.model)
+      : this.models.resolveDefault("generation");
 
     const conds = [eq(items.datasetId, req.datasetId), isNull(items.deletedAt)];
     if (req.itemIds) conds.push(inArray(items.id, req.itemIds));
@@ -153,8 +154,9 @@ export class ItemGenerator {
   async generateItems(req: GenerateItems): Promise<Job> {
     const ds = await this.db.query.datasets.findFirst({ where: eq(datasets.id, req.datasetId) });
     if (!ds) throw AppError.notFound("Dataset", req.datasetId);
-    const modelId = req.model ?? this.config.GENERATION_MODEL;
-    const info = this.models.resolve(modelId);
+    const info = req.model
+      ? this.models.resolve(req.model)
+      : this.models.resolveDefault("generation");
     const inputSchema = req.inputSchema ?? ds.inputSchema ?? undefined;
 
     const existing = await this.db
