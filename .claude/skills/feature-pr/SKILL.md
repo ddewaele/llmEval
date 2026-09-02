@@ -1,27 +1,34 @@
 ---
 name: feature-pr
-description: Verify the feature branch locally, push it, open a PR with a clear description, and watch CI
+description: Self-review the feature branch against the Definition of Done, push it, open a PR for Davy to review, and report CI
 allowed-tools: Bash
 ---
 
-Open a PR for the current feature branch. Do not merge here; that is `feature-merge`.
+Open a PR for the current feature branch. **Never merge.** Davy reviews and merges every PR
+himself; `gh pr merge` is denied by `.claude/settings.json`. Stop at the first failing step and
+report it; do not open a PR with anything below unresolved, and never note a known defect as a
+"follow-up" to fix in a later PR: fix it now or stop and say the slice is not done.
 
 1. Branch check: `git branch --show-current` must start with `feature/`, `fix/` or `chore/`.
-2. Commit anything outstanding (follow `feature-commit`).
-3. Local gate: `pnpm verify` (lint, format:check, typecheck, test, build). If anything fails, fix it
-   and commit the fix; do not open a PR on a red gate.
-4. Rebase check: `git fetch origin && git rebase origin/main`. Resolve conflicts if any, re-run the gate.
-5. Push: `git push -u origin <branch>` (use `--force-with-lease` only after a rebase).
-6. Create the PR with `gh pr create --base main --title "<title>" --body "<body>"`:
-   - title: conventional-commit style summarising the slice, e.g. `feat(core): dataset versions`.
-   - body follows `.github/pull_request_template.md`: `## Summary` (what and why, link the plan
-     slice), `## Changes` (bullets derived from `git log --oneline origin/main..HEAD`),
-     `## Test plan` (what was run, how to verify manually), `## Notes / follow-ups`.
-7. Watch CI: run `gh pr checks --watch --fail-fast` **as its own command and act on its exit
-   code**. Never pipe it into `tail`/`grep` in the same shell line; a pipe hides the failure.
-   Report the PR URL and the CI result. If CI fails, show the failing step's log excerpt
-   (`gh run view <run-id> --log-failed`) and fix it.
-8. Before opening a PR that adds dependencies, prove a clean install works the way CI does:
-   `rm -rf node_modules packages/*/node_modules apps/*/node_modules && pnpm install --frozen-lockfile && pnpm verify`.
-   pnpm's hoisting can make a dependency resolve locally even when it is missing from the
-   package manifest.
+2. Definition of Done (see CLAUDE.md), verified with commands, not from memory:
+   - `pnpm verify` passes (lint, format, typecheck, tests, build). The pre-push hook re-runs it.
+   - `pnpm check:hygiene` passes (no `.only`/`.skip` tests, no TODO/FIXME/XXX, no `console.log` in src).
+   - Every behaviour added in this branch has a test; `git diff origin/main --stat` and the test
+     files agree.
+   - Docs touched by the change are updated in this branch: the slice row in `CLAUDE.md`, `README.md`
+     if user-facing, `docs/PLAN.md` if the design changed. Confirm with `git diff origin/main -- CLAUDE.md`.
+   - Scripted edits applied: if you edited files with sed/python, grep for the new text to prove it
+     landed (Prettier reformats lines; exact-string edits miss silently).
+   - Dependencies: if `package.json` changed, run a clean `rm -rf node_modules */*/node_modules && pnpm install --frozen-lockfile && pnpm verify`.
+   - `git diff origin/main --stat` contains only files this slice needs. No stray scratch files.
+3. Commit anything outstanding (follow `feature-commit`).
+4. `git fetch origin && git rebase origin/main`; re-run `pnpm verify` if anything was rebased.
+5. `git push -u origin <branch>` (the pre-push hook runs the full gate; do not bypass it).
+6. `gh pr create --base main --title "<conventional title>" --body "<body>"` following
+   `.github/pull_request_template.md`. Every checklist box must be genuinely true; describe how
+   each was verified. List anything deliberately out of scope under "Not in this PR" with the
+   reason, so the reviewer can decide, never as a promise to fix later.
+7. `gh pr checks --watch --fail-fast` as a standalone command (never piped). If it fails, fix on
+   the branch and push again; do not report done until green.
+8. Report: PR URL, CI result, and the exact review points Davy should look at. Then stop; the next
+   slice starts only after Davy has merged (run `feature-sync` first).

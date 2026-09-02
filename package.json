@@ -18,7 +18,9 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
+    "verify": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build",
+    "check:hygiene": "bash scripts/check-hygiene.sh",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
