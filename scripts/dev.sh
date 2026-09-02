@@ -86,7 +86,8 @@ cmd_start() {
     cd "$ROOT/apps/server"
     export PORT="$port"
     [ -n "$db" ] && export LLMEVAL_DB_PATH="$db"
-    nohup "$tsx" "${args[@]}" "$entry" >"$API_LOG" 2>&1 &
+    # ${args[@]+"${args[@]}"} keeps `set -u` happy on bash 3.2 when the array is empty (--no-watch)
+    nohup "$tsx" ${args[@]+"${args[@]}"} "$entry" >"$API_LOG" 2>&1 &
     echo $! >"$API_PID"
   )
   echo "$port" >"$API_PORT_FILE"
