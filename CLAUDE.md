@@ -21,7 +21,14 @@ pnpm dev:web        # vite on :5173 with HMR, proxies /api to :3000
 pnpm build && pnpm dev   # server also serves the built SPA at http://localhost:3000/
 pnpm verify             # lint + format:check + typecheck + test + build  (same as GitHub Actions)
 pnpm test:watch
+scripts/dev.sh start [--web] [--port N] [--db PATH]   # background servers with pidfiles in .dev/
+scripts/dev.sh status | stop | restart | logs [-f] | kill-all
 ```
+
+Servers are started **only** through `scripts/dev.sh` (skills `dev-start`, `dev-stop`, `dev-status`,
+`dev-kill-all`), never with a bare `&`, so they can always be found and stopped. Use `--port` and
+`--db` for scratch instances during tests. Stop what you started before ending a task; `kill-all`
+removes anything from this repo left behind by earlier sessions and never touches other projects.
 
 ## Conventions
 

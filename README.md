@@ -97,6 +97,8 @@ over the same services using the same schemas. See `docs/PLAN.md` for the full d
 ```bash
 pnpm verify        # lint + format check + typecheck + tests + build (same as CI)
 pnpm test:watch
+scripts/dev.sh start     # background API (pidfile + log in .dev/); --web adds Vite, --port/--db for scratch instances
+scripts/dev.sh status | stop | restart | logs -f | kill-all
 ```
 
 One plan slice = one feature branch = one PR, squash-merged after CI is green
