@@ -27,6 +27,19 @@ const envFile = loadEnvFile();
 const config = loadConfig();
 const { db } = await openDatabase({ path: config.LLMEVAL_DB_PATH });
 const services = createServices(db, { config });
+const ollama = await services.models.discoverOllama();
+console.log(
+  ollama.reachable
+    ? `Ollama at ${config.OLLAMA_BASE_URL}: ${ollama.installed.length} model(s) installed`
+    : `Ollama at ${config.OLLAMA_BASE_URL}: not reachable`,
+);
+for (const [purpose, d] of Object.entries(services.models.catalog().defaults)) {
+  if (!d.available) {
+    console.warn(
+      `Warning: ${purpose} model ${d.configured} is not usable; ${d.effective ? `falling back to ${d.effective}` : "no model available"}`,
+    );
+  }
+}
 const recovered = await services.runs.recover();
 const interruptedJobs = await services.jobs$.recover();
 if (interruptedJobs.length) console.log(`Marked ${interruptedJobs.length} job(s) interrupted`);

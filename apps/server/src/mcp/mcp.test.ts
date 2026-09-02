@@ -177,9 +177,12 @@ describe("MCP endpoint (stateless streamable HTTP)", () => {
     await services.jobs$.wait((synth.data as { id: string }).id);
 
     const models = await callTool("list_models", {});
-    expect((models.data as Array<{ id: string }>).map((m) => m.id)).toContain(
-      "anthropic:claude-opus-5",
-    );
+    const catalog = models.data as {
+      models: Array<{ id: string }>;
+      defaults: { generation: { effective: string | null } };
+    };
+    expect(catalog.models.map((m) => m.id)).toContain("anthropic:claude-opus-5");
+    expect(catalog.defaults.generation.effective).toBe("anthropic:claude-opus-5");
   });
 
   it("returns isError results for domain errors and validation problems", async () => {

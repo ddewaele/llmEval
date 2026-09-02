@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router";
 import type { DatasetSummary, ImportResult, Item, Job } from "@llmeval/shared";
-import { api } from "../../lib/api.js";
+import { api, defaultModelLabel } from "../../lib/api.js";
 import { Empty, ErrorText, Field, Json, Modal, parseJsonOrText } from "../../components/ui.js";
 
 type Filter = "all" | "missing_expected" | "unreviewed" | "reviewed";
@@ -582,7 +582,7 @@ function GenerateDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const models = useQuery({ queryKey: ["models"], queryFn: api.models });
+  const models = useQuery({ queryKey: ["models"], queryFn: () => api.models() });
   const [instructions, setInstructions] = useState("");
   const [model, setModel] = useState("");
   const [schema, setSchema] = useState("");
@@ -661,9 +661,11 @@ function GenerateDialog({
         </Field>
         <Field label="Model">
           <select className="input" value={model} onChange={(e) => setModel(e.target.value)}>
-            <option value="">default (GENERATION_MODEL)</option>
-            {models.data
-              ?.filter((m) => m.available)
+            <option value="">
+              {defaultModelLabel(models.data?.defaults.generation, "GENERATION_MODEL")}
+            </option>
+            {models.data?.models
+              .filter((m) => m.available)
               .map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.id}
@@ -726,7 +728,7 @@ function SynthesizeDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const models = useQuery({ queryKey: ["models"], queryFn: api.models });
+  const models = useQuery({ queryKey: ["models"], queryFn: () => api.models() });
   const [description, setDescription] = useState("");
   const [count, setCount] = useState("20");
   const [model, setModel] = useState("");
@@ -793,9 +795,11 @@ function SynthesizeDialog({
           </Field>
           <Field label="Model">
             <select className="input" value={model} onChange={(e) => setModel(e.target.value)}>
-              <option value="">default (GENERATION_MODEL)</option>
-              {models.data
-                ?.filter((m) => m.available)
+              <option value="">
+                {defaultModelLabel(models.data?.defaults.generation, "GENERATION_MODEL")}
+              </option>
+              {models.data?.models
+                .filter((m) => m.available)
                 .map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.id}

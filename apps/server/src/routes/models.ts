@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { AvailableModelSchema } from "@llmeval/shared";
+import { BoolLikeSchema, ModelCatalogSchema } from "@llmeval/shared";
 import type { AppEnv } from "../env.js";
 
 export const modelRoutes = new OpenAPIHono<AppEnv>();
@@ -9,13 +9,18 @@ modelRoutes.openapi(
     method: "get",
     path: "/models",
     tags: ["models"],
-    summary: "List known models with pricing and provider availability",
+    summary:
+      "Known models with pricing and availability, effective defaults per purpose, Ollama status",
+    request: { query: z.object({ refresh: BoolLikeSchema.default(false) }) },
     responses: {
       200: {
-        description: "Models",
-        content: { "application/json": { schema: z.array(AvailableModelSchema) } },
+        description: "Model catalog",
+        content: { "application/json": { schema: ModelCatalogSchema } },
       },
     },
   }),
-  (c) => c.json(c.var.services.models.list(), 200),
+  async (c) => {
+    if (c.req.valid("query").refresh) await c.var.services.models.discoverOllama();
+    return c.json(c.var.services.models.catalog(), 200);
+  },
 );

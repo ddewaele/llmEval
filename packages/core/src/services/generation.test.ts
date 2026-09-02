@@ -81,6 +81,31 @@ describe("GenerationService.generateGroundTruths", () => {
     expect(pub.warnings).toEqual(["1 item(s) have no ground truth"]);
   });
 
+  it("uses an available local model when no provider key is configured", async () => {
+    const local = new FakeModelFactory();
+    local.replyFor = () => ({
+      output: { expected: "42", rationale: "r" },
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+    const ctx = await createTestContext({ ANTHROPIC_API_KEY: "" }, { modelFactory: local });
+    await ctx.services.models.discoverOllama({
+      fetch: (async () =>
+        new Response(JSON.stringify({ models: [{ name: "qwen2.5:7b" }] }))) as typeof fetch,
+    });
+    const dsId = (await ctx.services.datasets.create({ name: "local" })).id;
+    await ctx.services.items.add(dsId, [{ input: "q" }]);
+    const job = await ctx.services.generation.generateGroundTruths(
+      GenerateGroundTruthsSchema.parse({ datasetId: dsId }),
+    );
+    await ctx.services.jobs$.wait(job.id);
+    expect((await ctx.services.jobs$.get(job.id)).params.model).toBe("ollama:qwen2.5:7b");
+    expect(local.calls[0]!.modelId).toBe("ollama:qwen2.5:7b");
+    expect(
+      (await ctx.services.items.list(dsId, ListItemsQuerySchema.parse({}))).items[0]!.expectedModel,
+    ).toBe("ollama:qwen2.5:7b");
+  });
+
   it("regenerates listed items only with overwrite and validates the model", async () => {
     const items = (await s.items.list(datasetId, ListItemsQuerySchema.parse({}))).items;
     const keep = items[2]!;

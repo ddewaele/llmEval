@@ -1,5 +1,6 @@
 import type {
-  AvailableModel,
+  ModelCatalog,
+  DefaultModelInfo,
   Dataset,
   DatasetSummary,
   GenerateGroundTruths,
@@ -141,11 +142,19 @@ export const api = {
     get: (id: string) => request<Job>("GET", `/jobs/${id}`),
     list: (datasetId?: string) => request<Job[]>("GET", `/jobs${qs({ datasetId })}`),
   },
-  models: () => request<AvailableModel[]>("GET", "/models"),
+  models: (refresh = false) => request<ModelCatalog>("GET", `/models${qs({ refresh })}`),
   scorers: () => request<ScorerInfo[]>("GET", "/scorers"),
 };
 
 export function errorMessage(err: unknown): string {
   if (err instanceof ApiError) return `${err.code}: ${err.message}`;
   return err instanceof Error ? err.message : String(err);
+}
+
+/** Label for the "use the default model" option in model pickers. */
+export function defaultModelLabel(d: DefaultModelInfo | undefined, envName: string): string {
+  if (!d) return `default (${envName})`;
+  if (d.available) return `default (${d.configured})`;
+  if (d.effective) return `default → ${d.effective} (${d.configured} not usable)`;
+  return `default (${d.configured} not usable, no model available)`;
 }
