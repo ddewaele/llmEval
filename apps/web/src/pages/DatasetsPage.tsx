@@ -14,12 +14,19 @@ export function DatasetsPage() {
   });
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [brief, setBrief] = useState("");
   const create = useMutation({
-    mutationFn: () => api.datasets.create({ name, description: description || undefined }),
+    mutationFn: () =>
+      api.datasets.create({
+        name,
+        description: description || undefined,
+        generationBrief: brief || undefined,
+      }),
     onSuccess: () => {
       setCreating(false);
       setName("");
       setDescription("");
+      setBrief("");
       void qc.invalidateQueries({ queryKey: ["datasets"] });
     },
   });
@@ -106,6 +113,17 @@ export function DatasetsPage() {
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+              />
+            </Field>
+            <Field
+              label="Generation brief (optional)"
+              hint="What the dataset tests and what inputs look like; reused by synthetic item and ground-truth generation."
+            >
+              <textarea
+                className="input"
+                rows={4}
+                value={brief}
+                onChange={(e) => setBrief(e.target.value)}
               />
             </Field>
             <ErrorText error={create.error} />

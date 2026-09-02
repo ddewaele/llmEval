@@ -9,6 +9,8 @@ export const DatasetSchema = z.object({
   tags: z.array(z.string().min(1).max(64)),
   /** Optional JSON Schema describing the shape of item `input`. Used by generation. */
   inputSchema: JsonObjectSchema.nullable(),
+  /** Task brief reused as the default description for generate_items / generate_ground_truths. */
+  generationBrief: z.string().nullable(),
   archivedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -30,12 +32,20 @@ export const CreateDatasetSchema = z.object({
   inputSchema: JsonObjectSchema.optional().describe(
     "Optional JSON Schema for item input objects; used to guide synthetic generation",
   ),
+  generationBrief: z
+    .string()
+    .max(20_000)
+    .optional()
+    .describe(
+      "Description of the task and desired inputs, reused by generate_items and generate_ground_truths when they are called without one",
+    ),
 });
 export type CreateDataset = z.infer<typeof CreateDatasetSchema>;
 
 export const UpdateDatasetSchema = CreateDatasetSchema.partial().extend({
   description: z.string().max(5000).nullable().optional(),
   inputSchema: JsonObjectSchema.nullable().optional(),
+  generationBrief: z.string().max(20_000).nullable().optional(),
 });
 export type UpdateDataset = z.infer<typeof UpdateDatasetSchema>;
 

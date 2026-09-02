@@ -10,6 +10,7 @@ import { Layout } from "./pages/Layout.js";
 import { RunPage } from "./pages/RunPage.js";
 import { RunsPage } from "./pages/RunsPage.js";
 import { SettingsPage } from "./pages/SettingsPage.js";
+import { HistoryTab } from "./pages/dataset/HistoryTab.js";
 import { ItemsTab } from "./pages/dataset/ItemsTab.js";
 import { RunsTab } from "./pages/dataset/RunsTab.js";
 import { VersionsTab } from "./pages/dataset/VersionsTab.js";
@@ -31,6 +32,7 @@ const router = createBrowserRouter([
           { index: true, element: <ItemsTab /> },
           { path: "versions", element: <VersionsTab /> },
           { path: "runs", element: <RunsTab /> },
+          { path: "history", element: <HistoryTab /> },
         ],
       },
       { path: "runs", element: <RunsPage /> },

@@ -53,6 +53,12 @@ export function DatasetPage() {
               ))}
             </p>
           )}
+          {d.generationBrief && (
+            <details className="mt-1 text-xs text-gray-600">
+              <summary className="cursor-pointer">Generation brief</summary>
+              <p className="mt-1 max-w-3xl whitespace-pre-wrap">{d.generationBrief}</p>
+            </details>
+          )}
           <p className="mt-1 text-xs text-gray-500">
             {d.draftItemCount} draft items ·{" "}
             {d.latestVersion ? `latest v${d.latestVersion}` : "no versions yet"} ·{" "}
@@ -88,6 +94,9 @@ export function DatasetPage() {
         <NavLink to="runs" className={tab}>
           Runs
         </NavLink>
+        <NavLink to="history" className={tab}>
+          History
+        </NavLink>
       </nav>
       <ErrorText error={remove.error ?? archive.error} />
       <Outlet context={d} />
@@ -117,6 +126,7 @@ function DetailsEditor({
   const [name, setName] = useState(dataset.name);
   const [description, setDescription] = useState(dataset.description ?? "");
   const [tags, setTags] = useState(dataset.tags.join(", "));
+  const [brief, setBrief] = useState(dataset.generationBrief ?? "");
   const save = useMutation({
     mutationFn: () =>
       api.datasets.update(dataset.id, {
@@ -126,6 +136,7 @@ function DetailsEditor({
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
+        generationBrief: brief.trim() === "" ? null : brief,
       }),
     onSuccess: () => {
       onSaved();
@@ -163,6 +174,17 @@ function DetailsEditor({
         </Field>
         <Field label="Tags (comma separated)">
           <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} />
+        </Field>
+        <Field
+          label="Generation brief"
+          hint="Reused as the default description for synthetic items and as instructions for ground-truth generation."
+        >
+          <textarea
+            className="input"
+            rows={5}
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
+          />
         </Field>
         <ErrorText error={save.error} />
         <div className="flex justify-end gap-2">

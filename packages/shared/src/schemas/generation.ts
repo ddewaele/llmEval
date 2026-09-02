@@ -41,7 +41,10 @@ export const GenerateItemsSchema = z.object({
     .string()
     .min(1)
     .max(20_000)
-    .describe("What the dataset tests: the task, the kind of inputs, edge cases to cover"),
+    .optional()
+    .describe(
+      "What the dataset tests: the task, the kind of inputs, edge cases to cover. Defaults to the dataset's generationBrief",
+    ),
   count: z.number().int().min(1).max(500).default(20).describe("How many new items to produce"),
   seedItemIds: z
     .array(IdSchema)

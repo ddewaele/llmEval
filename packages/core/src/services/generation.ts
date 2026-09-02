@@ -40,11 +40,9 @@ export class GenerationService {
 
   /** Generate ground truths for draft items lacking one (or for the given items) as a background job. */
   async generateGroundTruths(req: GenerateGroundTruths): Promise<Job> {
-    const ds = await this.db.query.datasets.findFirst({
-      where: eq(datasets.id, req.datasetId),
-      columns: { id: true },
-    });
+    const ds = await this.db.query.datasets.findFirst({ where: eq(datasets.id, req.datasetId) });
     if (!ds) throw AppError.notFound("Dataset", req.datasetId);
+    const instructions = req.instructions ?? ds.generationBrief ?? undefined;
     const info = req.model
       ? this.models.resolve(req.model)
       : this.models.resolveDefault("generation");
@@ -62,7 +60,7 @@ export class GenerationService {
     const job = await this.jobService.create("generate_ground_truths", req.datasetId, {
       model: info.id,
       itemCount: targets.length,
-      instructions: req.instructions ?? null,
+      instructions: instructions ?? null,
       overwrite: req.overwrite,
     });
     void this.jobs.start(job.id, async (signal) => {
@@ -79,7 +77,7 @@ export class GenerationService {
               if (signal.aborted) return;
               try {
                 const res = await model.invokeStructured(
-                  messagesFor(req.instructions, t.input),
+                  messagesFor(instructions, t.input),
                   schema,
                   {
                     signal,
@@ -158,6 +156,13 @@ export class ItemGenerator {
       ? this.models.resolve(req.model)
       : this.models.resolveDefault("generation");
     const inputSchema = req.inputSchema ?? ds.inputSchema ?? undefined;
+    const description = req.description ?? ds.generationBrief ?? null;
+    if (!description) {
+      throw new AppError(
+        "VALIDATION",
+        "Provide a description, or set the dataset's generationBrief so it can be reused",
+      );
+    }
 
     const existing = await this.db
       .select({ id: items.id, input: itemRevisions.input, expected: itemRevisions.expected })
@@ -172,7 +177,7 @@ export class ItemGenerator {
     const job = await this.jobService.create("generate_items", req.datasetId, {
       model: info.id,
       count: req.count,
-      description: req.description,
+      description,
     });
     void this.jobs.start(job.id, async (signal) => {
       await this.jobService.markRunning(job.id);
@@ -206,7 +211,7 @@ export class ItemGenerator {
           try {
             const res = await model.invokeStructured(
               itemsPrompt(
-                req.description,
+                description,
                 want,
                 seeds,
                 [...existing.slice(0, 20).map((e) => e.input), ...recent].slice(-30),

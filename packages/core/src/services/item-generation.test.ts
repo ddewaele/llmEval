@@ -98,6 +98,27 @@ describe("ItemGenerator.generateItems", () => {
     expect(String(factory.calls[1]!.messages[1]!.content)).toMatch(/Mail 1 about CODE-1/);
   });
 
+  it("uses the dataset's generation brief when no description is given, and requires one otherwise", async () => {
+    await expect(
+      s.itemGenerator.generateItems(GenerateItemsSchema.parse({ datasetId, count: 1 })),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+    await s.datasets.update(datasetId, { generationBrief: "Emails asking about SAP parts" });
+    factory.replyFor = () => ({
+      output: { items: [{ input: { body: "New mail" } }] },
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+    const job = await s.itemGenerator.generateItems(
+      GenerateItemsSchema.parse({ datasetId, count: 1, withExpected: false }),
+    );
+    await s.jobs$.wait(job.id);
+    expect((await s.jobs$.get(job.id)).params.description).toBe("Emails asking about SAP parts");
+    expect(String(factory.calls[0]!.messages[1]!.content)).toMatch(
+      /## Dataset description\nEmails asking about SAP parts/,
+    );
+    expect((await s.jobs$.list(datasetId)).map((j) => j.kind)).toEqual(["generate_items"]);
+  });
+
   it("stops after repeated duplicate-only rounds and records failures", async () => {
     let round = 0;
     factory.replyFor = () => {
