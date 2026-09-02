@@ -194,7 +194,7 @@ export function registerGenerationTools(server: McpServer, services: Services) {
   tool(
     server,
     "generate_items",
-    "Create synthetic test items in a dataset's draft from a natural-language description of the task, optionally guided by seed items (few-shot) and a JSON Schema for inputs. By default each item also gets a drafted ground truth marked generated/unreviewed. Duplicates of existing or earlier items are dropped. Runs in the background: returns a job, poll get_job (result lists itemIds). Review with list_items(filter='unreviewed'), then publish_version.",
+    "Create synthetic test items in a dataset's draft from a natural-language description of the task (defaults to the dataset's generationBrief), optionally guided by seed items (few-shot) and a JSON Schema for inputs. By default each item also gets a drafted ground truth marked generated/unreviewed. Duplicates of existing or earlier items are dropped. Runs in the background: returns a job, poll get_job (result lists itemIds). Review with list_items(filter='unreviewed'), then publish_version.",
     GenerateItemsSchema,
     (a) => services.itemGenerator.generateItems(a),
   );
@@ -348,6 +348,18 @@ export function registerScoringTools(server: McpServer, services: Services) {
     "Add a scorer to an existing run and score its completed items in the background without re-running the model. Returns a job; poll get_job. Use overwrite=true to replace a scorer with the same key.",
     z.object({ runId: IdSchema, scorer: ScorerSpecSchema, overwrite: z.boolean().default(false) }),
     (a) => services.scoring.scoreRun(a.runId, a.scorer, { overwrite: a.overwrite }),
+  );
+
+  tool(
+    server,
+    "list_jobs",
+    "List background jobs (generation, ground truths, rescoring), newest first, with their parameters (description/instructions, model, count) and results. Filter by datasetId to see what produced a dataset's items.",
+    z.object({
+      datasetId: IdSchema.optional(),
+      limit: z.number().int().min(1).max(200).default(50),
+    }),
+    (a) => services.jobs$.list(a.datasetId, a.limit),
+    { readOnly: true, truncate: LIST_TRUNCATE },
   );
 
   tool(

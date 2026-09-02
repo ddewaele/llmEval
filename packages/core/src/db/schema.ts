@@ -19,6 +19,8 @@ export const datasets = sqliteTable("datasets", {
   description: text("description"),
   tags: text("tags", { mode: "json" }).$type<string[]>().notNull().default([]),
   inputSchema: text("input_schema", { mode: "json" }).$type<JsonObject>(),
+  /** Reusable description of the task used to seed synthetic items and ground-truth instructions. */
+  generationBrief: text("generation_brief"),
   archivedAt: text("archived_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

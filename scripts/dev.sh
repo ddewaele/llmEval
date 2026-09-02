@@ -65,7 +65,7 @@ cmd_start() {
     case "$1" in
       --web) web=1 ;;
       --port) port="$2"; shift ;;
-      --db) db="$2"; shift ;;
+      --db) db="$2"; case "$db" in /*) ;; *) db="$PWD/$db" ;; esac; shift ;;
       --no-watch) watch=0 ;;
       *) echo "unknown option $1"; exit 2 ;;
     esac; shift

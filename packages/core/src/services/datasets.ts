@@ -31,6 +31,7 @@ function toDataset(row: DatasetRow): Dataset {
     description: row.description ?? null,
     tags: row.tags ?? [],
     inputSchema: row.inputSchema ?? null,
+    generationBrief: row.generationBrief ?? null,
     archivedAt: row.archivedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -48,6 +49,7 @@ export class DatasetService {
       description: input.description ?? null,
       tags: input.tags ?? [],
       inputSchema: input.inputSchema ?? null,
+      generationBrief: input.generationBrief ?? null,
       archivedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -76,6 +78,7 @@ export class DatasetService {
     if (patch.description !== undefined) values.description = patch.description;
     if (patch.tags !== undefined) values.tags = patch.tags;
     if (patch.inputSchema !== undefined) values.inputSchema = patch.inputSchema;
+    if (patch.generationBrief !== undefined) values.generationBrief = patch.generationBrief;
     await this.db.update(datasets).set(values).where(eq(datasets.id, id));
     return toDataset(await this.requireRow(id));
   }

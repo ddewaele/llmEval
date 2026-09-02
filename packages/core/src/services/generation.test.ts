@@ -106,6 +106,18 @@ describe("GenerationService.generateGroundTruths", () => {
     ).toBe("ollama:qwen2.5:7b");
   });
 
+  it("uses the dataset's generation brief as instructions when none are given", async () => {
+    await s.datasets.update(datasetId, { generationBrief: "Codes look like ABC-123." });
+    const job = await s.generation.generateGroundTruths(
+      GenerateGroundTruthsSchema.parse({ datasetId }),
+    );
+    await s.jobs$.wait(job.id);
+    expect((await s.jobs$.get(job.id)).params.instructions).toBe("Codes look like ABC-123.");
+    expect(String(factory.calls[0]!.messages[1]!.content)).toMatch(
+      /## Task instructions\nCodes look like ABC-123\./,
+    );
+  });
+
   it("regenerates listed items only with overwrite and validates the model", async () => {
     const items = (await s.items.list(datasetId, ListItemsQuerySchema.parse({}))).items;
     const keep = items[2]!;

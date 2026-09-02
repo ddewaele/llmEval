@@ -10,7 +10,14 @@ describe("DatasetService", () => {
   });
 
   it("creates, lists, gets and updates a dataset", async () => {
-    const ds = await s.datasets.create({ name: "sap-codes", description: "d", tags: ["sap"] });
+    const ds = await s.datasets.create({
+      name: "sap-codes",
+      description: "d",
+      tags: ["sap"],
+      generationBrief: "Emails with SAP codes",
+    });
+    expect(ds.generationBrief).toBe("Emails with SAP codes");
+    expect((await s.datasets.update(ds.id, { generationBrief: null })).generationBrief).toBeNull();
     expect(ds.id).toHaveLength(26);
     const list = await s.datasets.list();
     expect(list.map((d) => d.name)).toEqual(["sap-codes"]);

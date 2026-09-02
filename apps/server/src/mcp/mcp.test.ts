@@ -172,6 +172,12 @@ describe("MCP endpoint (stateless streamable HTTP)", () => {
       count: 1,
     });
 
+    await services.jobs$.wait((synth.data as { id: string }).id);
+
+    const jobs = await callTool("list_jobs", { datasetId: ds.id });
+
+    expect((jobs.data as Array<{ kind: string }>).map((j) => j.kind)).toContain("generate_items");
+
     expect((synth.data as { kind: string }).kind).toBe("generate_items");
 
     await services.jobs$.wait((synth.data as { id: string }).id);
