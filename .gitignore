@@ -26,3 +26,6 @@ coverage/
 .DS_Store
 .idea/
 .vscode/
+
+# dev process manager state (pids, logs)
+.dev/
