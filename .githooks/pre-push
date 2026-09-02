@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Runs the same gate as CI before anything leaves this machine. Installed by `pnpm install` (prepare script).
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+echo "pre-push: pnpm verify + pnpm check:hygiene"
+pnpm verify
+pnpm check:hygiene

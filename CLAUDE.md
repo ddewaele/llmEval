@@ -25,17 +25,32 @@ pnpm test:watch
 
 ## Conventions
 
-- Never commit to `main`. One plan slice = one `feature/<name>` branch = one PR, squash-merged after CI is green. `main` is protected: the CI check is required and force pushes are disabled.
-- Check CI with `gh pr checks --watch --fail-fast` as a standalone command (exit code matters; never pipe it). Before a PR that adds dependencies, run a clean `pnpm install --frozen-lockfile && pnpm verify`.
-- Conventional commits, imperative subject ≤ 72 chars, body explains why. PR body follows `.github/pull_request_template.md`.
+- Never commit to `main`. One plan slice = one `feature/<name>` branch = one PR.
+- **Davy reviews and merges every PR himself.** Claude never merges (`gh pr merge` is denied in
+  `.claude/settings.json`), never force-pushes, never bypasses hooks, and never starts the next
+  slice before the previous PR is merged. `main` is protected: CI is required, force pushes disabled.
+- Conventional commits, imperative subject ≤ 72 chars, body explains why. PR body follows
+  `.github/pull_request_template.md` and every checklist item must be genuinely verified.
 - All business logic lives in `packages/core` services. REST routes and MCP tools are thin adapters over the same services using the same Zod schemas from `packages/shared`.
 - Services throw `AppError(code)`; REST maps to HTTP status, MCP returns `isError: true`.
 - Provider keys come from env only; never persisted or returned by the API.
-- Tests: vitest, in-memory SQLite for services, `app.request()` for routes. Add tests with every slice.
+
+## Definition of Done (per PR)
+
+A PR is ready for review only when all of these are true and were checked with commands:
+
+1. `pnpm verify` and `pnpm check:hygiene` pass; the pre-push hook enforces both; CI is green.
+2. Every new behaviour has a test in the same PR (vitest; temp-file SQLite for services, `app.request()` for routes, JSON-RPC for MCP).
+3. Changes to model calls, transports or the UI were exercised for real (e.g. against local Ollama or the served web app) and the PR says how.
+4. Docs are updated in the same PR: `CLAUDE.md` slice status row, `README.md` when user-facing, `docs/PLAN.md` when the design changed.
+5. No known defect is deferred. A discovered problem is fixed in the branch or the PR is not opened and the problem is reported. "Follow-up" is only for deliberate scope exclusions, listed under "Not in this PR" for the reviewer to accept.
+6. Scripted edits were confirmed to have landed (grep for the new text); Prettier reformatting makes exact-string edits miss silently.
+7. If `package.json` changed, a clean `pnpm install --frozen-lockfile && pnpm verify` was run.
 
 ## Skills (in `.claude/skills/`)
 
-`feature-start` → `feature-commit` → `feature-pr` → `feature-merge`, or `feature-ship` for the whole happy path.
+`feature-start` → `feature-commit` → `feature-pr` (opens the PR and stops) → Davy reviews and merges →
+`feature-sync`.
 
 ## Plan slice status
 
