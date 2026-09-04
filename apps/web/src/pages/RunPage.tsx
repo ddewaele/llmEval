@@ -175,17 +175,72 @@ export function RunPage() {
             </p>
           </div>
         ))}
-        <div className="card">
-          <p className="text-xs text-gray-500">config</p>
-          <p className="mono truncate" title={r.config.systemPrompt ?? ""}>
-            system: {r.config.systemPrompt ? r.config.systemPrompt.slice(0, 60) : "–"}
-          </p>
-          <p className="mono truncate" title={r.config.userTemplate ?? ""}>
-            template: {r.config.userTemplate ? r.config.userTemplate.slice(0, 60) : "–"}
-          </p>
-          <p className="mono">structured: {r.config.outputSchema ? "yes" : "no"}</p>
-        </div>
       </div>
+
+      <details className="card mb-4" open>
+        <summary className="cursor-pointer text-sm font-semibold">
+          Prompt &amp; configuration{" "}
+          <span className="ml-2 text-xs font-normal text-gray-500">
+            exactly what this run sent to {r.config.model}
+          </span>
+        </summary>
+        <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="label">System prompt</p>
+            {r.config.systemPrompt ? (
+              <pre className="mono rounded border border-gray-200 bg-gray-50 p-2 whitespace-pre-wrap">
+                {r.config.systemPrompt}
+              </pre>
+            ) : (
+              <p className="text-xs text-gray-400 italic">none</p>
+            )}
+          </div>
+          <div>
+            <p className="label">User template</p>
+            {r.config.userTemplate ? (
+              <pre className="mono rounded border border-gray-200 bg-gray-50 p-2 whitespace-pre-wrap">
+                {r.config.userTemplate}
+              </pre>
+            ) : (
+              <p className="text-xs text-gray-400 italic">
+                none: the item input is sent as-is (objects as JSON)
+              </p>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              Open any item below to see the rendered messages for that item.
+            </p>
+          </div>
+          <div>
+            <p className="label">Output JSON schema</p>
+            {r.config.outputSchema ? (
+              <pre className="mono max-h-56 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 whitespace-pre-wrap">
+                {JSON.stringify(r.config.outputSchema, null, 2)}
+              </pre>
+            ) : (
+              <p className="text-xs text-gray-400 italic">none: free-text output</p>
+            )}
+            <p className="label mt-3">Model &amp; parameters</p>
+            <pre className="mono rounded border border-gray-200 bg-gray-50 p-2 whitespace-pre-wrap">
+              {r.config.model}
+              {"\n"}
+              {JSON.stringify(r.config.params)}
+            </pre>
+          </div>
+          <div>
+            <p className="label">Scorers</p>
+            {r.scorers.length === 0 && <p className="text-xs text-gray-400 italic">none</p>}
+            {r.scorers.map((s) => (
+              <div key={s.key} className="mb-1 rounded border border-gray-200 bg-gray-50 p-2">
+                <span className="font-medium">{s.key}</span>{" "}
+                <span className="text-xs text-gray-500">{s.type}</span>
+                <pre className="mono mt-1 whitespace-pre-wrap text-gray-700">
+                  {JSON.stringify(s.config)}
+                </pre>
+              </div>
+            ))}
+          </div>
+        </div>
+      </details>
 
       <div className="mb-2 flex items-center gap-2">
         <select

@@ -183,8 +183,15 @@ Runs tab → **New run**:
 
 ![Runs tab](images/dataset-runs.png)
 
-The run page shows live progress, per-scorer aggregate cards, and every item with input, expected,
-output, scores, latency and status. Click a row for the exact messages sent, the raw provider
+Every field has a **?** button that explains it and offers an example derived from your own data:
+the user template example uses the fields of your first item, the output schema example is inferred
+from its `expected` value, and the scorer buttons append ready-made specs. The **Manual** button in a
+help box jumps to the matching section here.
+
+The run page shows live progress, per-scorer aggregate cards, and the **Prompt & configuration**
+panel with the full system prompt, user template, output schema, model parameters and scorer specs
+the run executed with. Below it, every item is listed with input, expected, output, scores, latency
+and status; click a row for the exact rendered messages sent for that item, the raw provider
 metadata and each score's rationale.
 
 ![Run detail](images/run-detail.png)
