@@ -56,7 +56,10 @@ export class RunService {
       userTemplate: input.userTemplate ?? null,
       outputSchema: input.outputSchema ?? null,
     });
-    this.models.resolve(config.model); // fail fast on unknown/unavailable models
+    const modelInfo = this.models.resolve(config.model); // fail fast on unknown/unavailable models
+    // Local models serve requests one at a time; parallel calls only slow each other down and
+    // push every item toward the timeout, so default to 1 for Ollama.
+    const defaultConcurrency = modelInfo.provider === "ollama" ? 1 : this.config.MAX_CONCURRENCY;
     const scorerSpecs = this.scorers.validate(input.scorers);
     const entries = await this.db
       .select({ itemId: versionItems.itemId, revisionId: versionItems.revisionId })
@@ -75,7 +78,7 @@ export class RunService {
       configSnapshot: config as unknown as RunRow["configSnapshot"],
       scorers: scorerSpecs as unknown as RunRow["scorers"],
       status: "pending",
-      concurrency: input.concurrency ?? this.config.MAX_CONCURRENCY,
+      concurrency: input.concurrency ?? defaultConcurrency,
       triggeredBy: input.triggeredBy,
       totalItems: entries.length,
       completedItems: 0,
@@ -246,14 +249,11 @@ export class RunService {
     return this.get(id);
   }
 
-  /** Re-enqueue pending and cancelled items of a cancelled/interrupted/failed run. */
+  /** Re-enqueue pending, cancelled and failed items of a cancelled/interrupted/failed run; completed items are kept. */
   async resume(id: string): Promise<Run> {
     const row = await this.requireRow(id);
-    if (!["cancelled", "interrupted", "failed"].includes(row.status)) {
-      throw new AppError(
-        "INVALID_STATE",
-        `Run is ${row.status}; only cancelled, interrupted or failed runs can be resumed`,
-      );
+    if (!["cancelled", "interrupted", "failed", "completed"].includes(row.status)) {
+      throw new AppError("INVALID_STATE", `Run is ${row.status}; a running run cannot be resumed`);
     }
     await this.db
       .update(runs)

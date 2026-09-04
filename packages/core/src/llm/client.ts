@@ -67,14 +67,31 @@ export class LangChainModelFactory implements ChatModelFactory {
   }
 }
 
-class LangChainChatModel implements ChatModel {
+/** Thrown when a model call exceeds its timeout; the engine records the item as failed. */
+export class ModelTimeoutError extends Error {
+  override readonly name = "TimeoutError";
+  constructor(readonly timeoutMs: number) {
+    super(`Timed out after ${timeoutMs} ms`);
+  }
+}
+
+/**
+ * Adapter over a LangChain chat model. Timeouts are enforced here rather than through LangChain's
+ * `timeout` option: some integrations (Ollama) resolve with an empty message when the signal
+ * fires instead of throwing, and others throw an abort-flavoured error that is indistinguishable
+ * from a user cancellation. Combining the run's cancel signal with our own timeout signal and
+ * checking which one fired afterwards makes both outcomes explicit.
+ */
+export class LangChainChatModel implements ChatModel {
   constructor(
-    private readonly model: LcChatModel,
+    private readonly model: LcRunnable & Partial<Pick<LcChatModel, "withStructuredOutput">>,
     private readonly modelId: string,
   ) {}
 
   async invoke(messages: RenderedMessage[], options: InvokeOptions = {}): Promise<ModelResponse> {
-    const ai = (await this.model.invoke(toLc(messages), callOptions(options))) as LcAiMessage;
+    const ai = (await this.guarded(options, (signal) =>
+      this.model.invoke(toLc(messages), { signal }),
+    )) as LcAiMessage;
     return { output: messageText(ai), usage: usageOf(ai), raw: rawOf(ai, this.modelId) };
   }
 
@@ -83,24 +100,40 @@ class LangChainChatModel implements ChatModel {
     schema: JsonObject,
     options: InvokeOptions = {},
   ): Promise<ModelResponse> {
+    if (!this.model.withStructuredOutput)
+      throw new Error(`${this.modelId} does not support structured output`);
     const structured = this.model.withStructuredOutput(schema, { includeRaw: true });
-    const res = (await structured.invoke(toLc(messages), callOptions(options))) as {
-      raw: LcAiMessage;
-      parsed: unknown;
-    };
+    const res = (await this.guarded(options, (signal) =>
+      structured.invoke(toLc(messages), { signal }),
+    )) as { raw: LcAiMessage; parsed: unknown };
     return { output: res.parsed, usage: usageOf(res.raw), raw: rawOf(res.raw, this.modelId) };
+  }
+
+  private async guarded<T>(
+    options: InvokeOptions,
+    call: (signal: AbortSignal) => Promise<T>,
+  ): Promise<T> {
+    const timeoutMs = options.timeoutMs ?? 300_000;
+    const timeout = AbortSignal.timeout(timeoutMs);
+    const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
+    let result: T;
+    try {
+      result = await call(signal);
+    } catch (err) {
+      if (options.signal?.aborted)
+        throw Object.assign(new Error("cancelled"), { name: "AbortError" });
+      if (timeout.aborted) throw new ModelTimeoutError(timeoutMs);
+      throw err;
+    }
+    if (options.signal?.aborted)
+      throw Object.assign(new Error("cancelled"), { name: "AbortError" });
+    if (timeout.aborted) throw new ModelTimeoutError(timeoutMs);
+    return result;
   }
 }
 
 function toLc(messages: RenderedMessage[]): LcMessage[] {
   return messages.map((m) => ({ role: m.role, content: m.content }));
-}
-
-function callOptions(o: InvokeOptions): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  if (o.signal) out.signal = o.signal;
-  if (o.timeoutMs) out.timeout = o.timeoutMs;
-  return out;
 }
 
 export function messageText(ai: LcAiMessage): string {

@@ -128,13 +128,14 @@ export function RunPage() {
               Cancel
             </button>
           ) : (
-            r.status !== "completed" && (
+            (r.status !== "completed" || r.failedItems > 0) && (
               <button
                 className="btn btn-sm"
                 onClick={() => resume.mutate()}
                 disabled={resume.isPending}
+                title="Re-run pending, cancelled and failed items; completed items are kept"
               >
-                Resume
+                {r.status === "completed" ? `Retry ${r.failedItems} failed` : "Resume"}
               </button>
             )
           )}

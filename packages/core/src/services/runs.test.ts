@@ -131,6 +131,62 @@ describe("RunService + RunEngine", () => {
     expect(failedOnly.items).toHaveLength(1);
   });
 
+  it("reports provider timeouts as failed items with a clear message and does not retry them", async () => {
+    factory.replyFor = (call) =>
+      JSON.stringify(call.messages).includes("ABC-1")
+        ? {
+            error: Object.assign(new Error("The operation was aborted due to timeout"), {
+              name: "TimeoutError",
+            }),
+          }
+        : { output: "ok", inputTokens: 1, outputTokens: 1 };
+    const run = await start(s, {
+      datasetId,
+      userTemplate: "{{body}}",
+      params: { timeoutMs: 1234 },
+    });
+    await s.runs.wait(run.id);
+    const done = await s.runs.get(run.id);
+    expect(done.status).toBe("completed");
+    expect(done.failedItems).toBe(1);
+    const items = (await s.runs.listItems(run.id, ListRunItemsQuerySchema.parse({}))).items;
+    expect(items[0]!.status).toBe("failed");
+    expect(items[0]!.error).toMatch(/Timed out after 1234 ms .*Lower the run concurrency/);
+    expect(items[0]!.attempt).toBe(1);
+    expect(items.filter((i) => i.status === "cancelled")).toHaveLength(0);
+  });
+
+  it("resume retries failed items and keeps completed ones", async () => {
+    let failOnce = true;
+    factory.replyFor = (call) => {
+      if (JSON.stringify(call.messages).includes("ABC-1") && failOnce) {
+        failOnce = false;
+        return { error: Object.assign(new Error("bad request"), { status: 400 }) };
+      }
+      return { output: "ok", inputTokens: 1, outputTokens: 1 };
+    };
+    const run = await start(s, { datasetId, userTemplate: "{{body}}" });
+    await s.runs.wait(run.id);
+    expect((await s.runs.get(run.id)).failedItems).toBe(1);
+    const callsBefore = factory.calls.length;
+    await s.runs.resume(run.id);
+    await s.runs.wait(run.id);
+    const done = await s.runs.get(run.id);
+    expect(done.status).toBe("completed");
+    expect(done.failedItems).toBe(0);
+    expect(done.completedItems).toBe(3);
+    expect(factory.calls.length).toBe(callsBefore + 1); // only the failed item was re-run
+  });
+
+  it("defaults concurrency to 1 for Ollama models", async () => {
+    const run = await start(s, { datasetId, model: "ollama:llama3.2" });
+    await s.runs.wait(run.id);
+    expect(run.concurrency).toBe(1);
+    const cloud = await start(s, { datasetId });
+    await s.runs.wait(cloud.id);
+    expect(cloud.concurrency).toBe(4);
+  });
+
   it("cancels in-flight work and resumes the remaining items", async () => {
     let hangs = 0;
     factory.replyFor = () => (hangs++ < 1 ? { hang: true } : { output: "late", inputTokens: 1 });
