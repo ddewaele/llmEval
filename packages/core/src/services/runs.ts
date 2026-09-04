@@ -56,7 +56,10 @@ export class RunService {
       userTemplate: input.userTemplate ?? null,
       outputSchema: input.outputSchema ?? null,
     });
-    this.models.resolve(config.model); // fail fast on unknown/unavailable models
+    const modelInfo = this.models.resolve(config.model); // fail fast on unknown/unavailable models
+    // Local models serve requests one at a time; parallel calls only slow each other down and
+    // push every item toward the timeout, so default to 1 for Ollama.
+    const defaultConcurrency = modelInfo.provider === "ollama" ? 1 : this.config.MAX_CONCURRENCY;
     const scorerSpecs = this.scorers.validate(input.scorers);
     const entries = await this.db
       .select({ itemId: versionItems.itemId, revisionId: versionItems.revisionId })
@@ -75,7 +78,7 @@ export class RunService {
       configSnapshot: config as unknown as RunRow["configSnapshot"],
       scorers: scorerSpecs as unknown as RunRow["scorers"],
       status: "pending",
-      concurrency: input.concurrency ?? this.config.MAX_CONCURRENCY,
+      concurrency: input.concurrency ?? defaultConcurrency,
       triggeredBy: input.triggeredBy,
       totalItems: entries.length,
       completedItems: 0,

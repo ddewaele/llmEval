@@ -131,6 +131,40 @@ describe("RunService + RunEngine", () => {
     expect(failedOnly.items).toHaveLength(1);
   });
 
+  it("reports provider timeouts as failed items with a clear message and does not retry them", async () => {
+    factory.replyFor = (call) =>
+      JSON.stringify(call.messages).includes("ABC-1")
+        ? {
+            error: Object.assign(new Error("The operation was aborted due to timeout"), {
+              name: "TimeoutError",
+            }),
+          }
+        : { output: "ok", inputTokens: 1, outputTokens: 1 };
+    const run = await start(s, {
+      datasetId,
+      userTemplate: "{{body}}",
+      params: { timeoutMs: 1234 },
+    });
+    await s.runs.wait(run.id);
+    const done = await s.runs.get(run.id);
+    expect(done.status).toBe("completed");
+    expect(done.failedItems).toBe(1);
+    const items = (await s.runs.listItems(run.id, ListRunItemsQuerySchema.parse({}))).items;
+    expect(items[0]!.status).toBe("failed");
+    expect(items[0]!.error).toMatch(/Timed out after 1234 ms .*Lower the run concurrency/);
+    expect(items[0]!.attempt).toBe(1);
+    expect(items.filter((i) => i.status === "cancelled")).toHaveLength(0);
+  });
+
+  it("defaults concurrency to 1 for Ollama models", async () => {
+    const run = await start(s, { datasetId, model: "ollama:llama3.2" });
+    await s.runs.wait(run.id);
+    expect(run.concurrency).toBe(1);
+    const cloud = await start(s, { datasetId });
+    await s.runs.wait(cloud.id);
+    expect(cloud.concurrency).toBe(4);
+  });
+
   it("cancels in-flight work and resumes the remaining items", async () => {
     let hangs = 0;
     factory.replyFor = () => (hangs++ < 1 ? { hang: true } : { output: "late", inputTokens: 1 });

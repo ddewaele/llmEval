@@ -10,7 +10,7 @@ import type { ModelRegistry } from "../llm/models.js";
 import { estimateCost } from "../llm/pricing.js";
 import { nowIso } from "../util/time.js";
 import type { JobRunner } from "./job-runner.js";
-import { isAbort, isRetryable, sleep } from "./retry.js";
+import { isRetryable, isTimeout, sleep } from "./retry.js";
 
 export interface RunEngineOptions {
   maxAttempts?: number;
@@ -81,7 +81,7 @@ export class RunEngine {
   ) {
     this.maxAttempts = opts.maxAttempts ?? 3;
     this.backoffMs = opts.backoffMs ?? 500;
-    this.defaultTimeoutMs = opts.defaultTimeoutMs ?? 120_000;
+    this.defaultTimeoutMs = opts.defaultTimeoutMs ?? 300_000;
   }
 
   onItemCompleted(hook: ItemCompletedHook | null): void {
@@ -277,7 +277,16 @@ export class RunEngine {
         return;
       } catch (err) {
         lastError = err;
-        if (signal.aborted || isAbort(err)) break;
+        // Only the run's own signal means "cancelled". A provider timeout also surfaces as an
+        // abort-style error but is a failure of this item, reported as such and not retried
+        // (a retry would just wait another timeoutMs on an overloaded model).
+        if (signal.aborted) break;
+        if (isTimeout(err)) {
+          lastError = new Error(
+            `Timed out after ${timeoutMs} ms waiting for ${config.model}. Lower the run concurrency (1 for local models) or raise params.timeoutMs.`,
+          );
+          break;
+        }
         if (!isRetryable(err) || attempt >= this.maxAttempts) break;
         try {
           await sleep(this.backoffMs * 2 ** (attempt - 1), signal);
@@ -287,7 +296,7 @@ export class RunEngine {
       }
     }
 
-    if (signal.aborted || isAbort(lastError)) {
+    if (signal.aborted) {
       await this.db
         .update(runItems)
         .set({ status: "cancelled", attempt, finishedAt: nowIso() })

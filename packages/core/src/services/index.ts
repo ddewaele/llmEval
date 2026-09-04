@@ -52,7 +52,10 @@ export function createServices(db: Db, opts: CreateServicesOptions = {}): Servic
   const models = ModelRegistry.fromFiles(config, opts.modelFiles);
   const jobs = new JobRunner();
   const modelFactory = opts.modelFactory ?? new LangChainModelFactory(config);
-  const engine = new RunEngine(db, config, models, modelFactory, jobs, opts.engine);
+  const engine = new RunEngine(db, config, models, modelFactory, jobs, {
+    defaultTimeoutMs: config.ITEM_TIMEOUT_MS,
+    ...opts.engine,
+  });
   const items = new ItemService(db);
   const versions = new VersionService(db);
   const scorers = new ScorerRegistry([

@@ -15,6 +15,8 @@ export const ConfigSchema = z.object({
   JUDGE_MODEL: z.string().default("anthropic:claude-opus-5"),
   GENERATION_MODEL: z.string().default("anthropic:claude-opus-5"),
   MAX_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
+  /** Per-item model call timeout; local models on modest hardware can need several minutes. */
+  ITEM_TIMEOUT_MS: z.coerce.number().int().min(1000).default(300_000),
   AUTO_RESUME: boolFromEnv.default(true),
   ALLOW_UNLISTED_MODELS: boolFromEnv.default(false),
 });

@@ -26,6 +26,17 @@ export function isAbort(err: unknown): boolean {
   return e.name === "AbortError" || e.message === "cancelled" || /abort/i.test(e.message ?? "");
 }
 
+/** A per-request timeout (LangChain uses AbortSignal.timeout, which throws a TimeoutError/AbortError). */
+export function isTimeout(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { name?: string; message?: string; code?: string };
+  return (
+    e.name === "TimeoutError" ||
+    e.code === "ETIMEDOUT" ||
+    /timeout|timed out/i.test(e.message ?? "")
+  );
+}
+
 export const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
   new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(signal.reason ?? new Error("cancelled"));
