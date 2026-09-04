@@ -249,14 +249,11 @@ export class RunService {
     return this.get(id);
   }
 
-  /** Re-enqueue pending and cancelled items of a cancelled/interrupted/failed run. */
+  /** Re-enqueue pending, cancelled and failed items of a cancelled/interrupted/failed run; completed items are kept. */
   async resume(id: string): Promise<Run> {
     const row = await this.requireRow(id);
-    if (!["cancelled", "interrupted", "failed"].includes(row.status)) {
-      throw new AppError(
-        "INVALID_STATE",
-        `Run is ${row.status}; only cancelled, interrupted or failed runs can be resumed`,
-      );
+    if (!["cancelled", "interrupted", "failed", "completed"].includes(row.status)) {
+      throw new AppError("INVALID_STATE", `Run is ${row.status}; a running run cannot be resumed`);
     }
     await this.db
       .update(runs)

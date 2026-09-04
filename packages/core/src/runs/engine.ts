@@ -167,12 +167,18 @@ export class RunEngine {
     const pending = await this.db
       .select({ id: runItems.id })
       .from(runItems)
-      .where(and(eq(runItems.runId, runId), inArray(runItems.status, ["pending", "cancelled"])));
+      .where(
+        and(
+          eq(runItems.runId, runId),
+          inArray(runItems.status, ["pending", "cancelled", "failed"]),
+        ),
+      );
     if (pending.length > 0) {
+      // Cancelled and failed (e.g. timed out) items are retried on resume; completed ones are kept.
       await this.db
         .update(runItems)
         .set({ status: "pending", error: null })
-        .where(and(eq(runItems.runId, runId), eq(runItems.status, "cancelled")));
+        .where(and(eq(runItems.runId, runId), inArray(runItems.status, ["cancelled", "failed"])));
     }
 
     const limit = pLimit(run.concurrency);

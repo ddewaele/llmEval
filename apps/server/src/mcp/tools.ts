@@ -317,7 +317,7 @@ export function registerRunTools(server: McpServer, services: Services) {
   tool(
     server,
     "resume_run",
-    "Resume a cancelled, interrupted or failed run: re-enqueues its pending and cancelled items without redoing completed ones.",
+    "Resume a run that is not currently running: re-enqueues its pending, cancelled and failed (e.g. timed-out) items without redoing completed ones.",
     z.object({ id: IdSchema }),
     (a) => services.runs.resume(a.id),
   );
